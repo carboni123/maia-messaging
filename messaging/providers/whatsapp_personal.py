@@ -283,8 +283,14 @@ def _parse_send_media_response(data: dict[str, Any]) -> _AdapterMediaResponse:
 
 
 def _extract_adapter_error(data: Mapping[str, Any]) -> str | None:
-    """Extract adapter error message when returned in JSON payload."""
-    for key in ("error", "message", "detail"):
+    """Extract adapter error message when returned in JSON payload.
+
+    Only checks ``"error"`` and ``"detail"`` at the top level.
+    ``"message"`` is only checked inside nested error/detail objects
+    to avoid false-positives on success responses that carry a
+    top-level ``"message"`` field.
+    """
+    for key in ("error", "detail"):
         value = data.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()

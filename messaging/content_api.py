@@ -312,6 +312,8 @@ class TwilioContentAPI:
                 status=getattr(exc, "status", None),
                 code=getattr(exc, "code", None),
             ) from exc
+        except Exception as exc:
+            raise TwilioContentAPIError(f"Failed to create template: {exc}") from exc
 
         return resource.to_dict()
 
@@ -337,15 +339,17 @@ class TwilioContentAPI:
         """
         try:
             resources = self._client.content.v1.content_and_approvals.stream(page_size=page_size)
+            templates: list[dict[str, Any]] = []
+            for resource in resources:
+                logger.debug("Twilio template resource: %s", resource.__dict__)
+                templates.append(_serialize_content_with_approvals(resource))
         except TwilioRestException as exc:
             raise TwilioContentAPIError(
                 str(exc), status=getattr(exc, "status", None), code=getattr(exc, "code", None)
             ) from exc
+        except Exception as exc:
+            raise TwilioContentAPIError(f"Failed to list templates: {exc}") from exc
 
-        templates: list[dict[str, Any]] = []
-        for resource in resources:
-            logger.debug("Twilio template resource: %s", resource.__dict__)
-            templates.append(_serialize_content_with_approvals(resource))
         return templates
 
     def create_quick_reply(
@@ -428,3 +432,5 @@ class TwilioContentAPI:
                 status=getattr(exc, "status", None),
                 code=getattr(exc, "code", None),
             ) from exc
+        except Exception as exc:
+            raise TwilioContentAPIError(f"Failed to create quick-reply: {exc}") from exc
