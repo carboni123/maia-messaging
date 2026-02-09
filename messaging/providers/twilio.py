@@ -45,6 +45,8 @@ class TwilioProvider:
     """
 
     def __init__(self, config: TwilioConfig) -> None:
+        if not config.whatsapp_number:
+            raise ValueError("TwilioConfig.whatsapp_number is required for message delivery")
         self._config = config
         self._client = Client(config.account_sid, config.auth_token)
 

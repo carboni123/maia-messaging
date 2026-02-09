@@ -1,5 +1,5 @@
 """
-maia-messaging — WhatsApp delivery library.
+maia-messaging — Multi-channel messaging delivery library.
 
 Standalone messaging gateway extracted from the Meu Assistente IA backend.
 Owns everything from "I have a resolved message and provider config" to
@@ -10,7 +10,7 @@ Installation::
 
     pip install maia-messaging@git+https://github.com/carboni123/maia-messaging.git
 
-Quick start::
+Quick start — WhatsApp via Twilio::
 
     from messaging import TwilioProvider, TwilioConfig, WhatsAppText
 
@@ -22,6 +22,36 @@ Quick start::
     result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello!"))
     if result.succeeded:
         print(f"Message SID: {result.external_id}")
+
+Quick start — Email via SendGrid::
+
+    from messaging import SendGridProvider, SendGridConfig, EmailMessage
+
+    provider = SendGridProvider(SendGridConfig(api_key="SG..."))
+    result = provider.send(EmailMessage(
+        to="user@example.com",
+        subject="Welcome",
+        html_content="<h1>Hello!</h1>",
+        from_email="noreply@example.com",
+        from_name="My App",
+    ))
+    if result.succeeded:
+        print("Email sent!")
+
+Template management — Twilio Content API::
+
+    from messaging import TwilioContentAPI, TwilioConfig
+
+    api = TwilioContentAPI(TwilioConfig(
+        account_sid="AC...",
+        auth_token="...",
+        whatsapp_number="whatsapp:+14155238886",
+    ))
+    template = api.create_template(
+        friendly_name="order_update",
+        language="en",
+        types={"twilio_text": {"body": "Your order {{1}} is {{2}}."}},
+    )
 
 With phone fallback (Brazilian 9-digit → 8-digit retry)::
 
@@ -43,21 +73,25 @@ For testing::
 
 Module overview
 ---------------
-- ``types``       — Core dataclasses: Message types, DeliveryResult, configs
-- ``gateway``     — MessagingGateway with phone fallback
-- ``providers/``  — TwilioProvider, WhatsAppPersonalProvider, MockProvider
-- ``phone/``      — Phone normalization (Brazil 8→9 digit, E.164, whatsapp: format)
-- ``pricing``     — WhatsApp template cost calculator
+- ``types``         — Core dataclasses: Message types, DeliveryResult, configs
+- ``gateway``       — MessagingGateway with phone fallback
+- ``providers/``    — TwilioProvider, WhatsAppPersonalProvider, MockProvider
+- ``email/``        — SendGridProvider, Smtp2GoProvider
+- ``content_api``   — TwilioContentAPI for template CRUD
+- ``phone/``        — Phone normalization (Brazil 8→9 digit, E.164, whatsapp: format)
+- ``pricing``       — WhatsApp template cost calculator
 
 What this library does NOT own (stays in the consuming app):
 - Database models and CommunicationLog creation
 - Integration/credential resolution (which Twilio account to use)
 - Quota enforcement and billing
 - Session lifecycle and routing
-- Template CRUD (Twilio Content API management)
 - WhatsApp session lifecycle (QR code, connection status)
+- Status webhook processing (DB updates, event bus)
 """
 
+from .content_api import TwilioContentAPI, TwilioContentAPIError, TwilioTemplateResponse
+from .email import EmailProvider, SendGridProvider, Smtp2GoProvider
 from .gateway import MessagingGateway
 from .mock import MockProvider
 from .phone import denormalize_phone_for_whatsapp, format_whatsapp_number, normalize_phone, normalize_whatsapp_id, phones_match
@@ -68,8 +102,11 @@ from .providers.whatsapp_personal import WhatsAppPersonalProvider
 from .types import (
     DeliveryResult,
     DeliveryStatus,
+    EmailMessage,
     GatewayResult,
     Message,
+    SendGridConfig,
+    Smtp2GoConfig,
     TwilioConfig,
     WhatsAppMedia,
     WhatsAppPersonalConfig,
@@ -80,13 +117,21 @@ from .types import (
 __all__ = [
     # Gateway
     "MessagingGateway",
-    # Providers
+    # WhatsApp Providers
     "MessagingProvider",
     "TwilioProvider",
     "WhatsAppPersonalProvider",
     "MockProvider",
     "empty_messaging_response_xml",
-    # Types
+    # Email Providers
+    "EmailProvider",
+    "SendGridProvider",
+    "Smtp2GoProvider",
+    # Template Management
+    "TwilioContentAPI",
+    "TwilioContentAPIError",
+    "TwilioTemplateResponse",
+    # Types — WhatsApp
     "DeliveryResult",
     "DeliveryStatus",
     "GatewayResult",
@@ -96,6 +141,10 @@ __all__ = [
     "WhatsAppPersonalConfig",
     "WhatsAppTemplate",
     "WhatsAppText",
+    # Types — Email
+    "EmailMessage",
+    "SendGridConfig",
+    "Smtp2GoConfig",
     # Phone
     "denormalize_phone_for_whatsapp",
     "format_whatsapp_number",

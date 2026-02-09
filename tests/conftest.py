@@ -2,7 +2,7 @@
 
 import pytest
 
-from messaging import MockProvider, TwilioConfig, WhatsAppPersonalConfig
+from messaging import MockProvider, SendGridConfig, Smtp2GoConfig, TwilioConfig, WhatsAppPersonalConfig
 
 
 @pytest.fixture
@@ -22,6 +22,16 @@ def whatsapp_personal_config() -> WhatsAppPersonalConfig:
         api_key="test-api-key",
         adapter_base_url="http://localhost:3001",
     )
+
+
+@pytest.fixture
+def sendgrid_config() -> SendGridConfig:
+    return SendGridConfig(api_key="SG.test_key_123")
+
+
+@pytest.fixture
+def smtp2go_config() -> Smtp2GoConfig:
+    return Smtp2GoConfig(api_key="smtp2go_test_key")
 
 
 @pytest.fixture

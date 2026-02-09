@@ -4,12 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "maia-messaging"
-version = "0.1.0"
-description = "Messaging gateway library for WhatsApp delivery via Twilio and WhatsApp Personal"
+version = "0.2.0"
+description = "Multi-channel messaging library: WhatsApp (Twilio, Personal), Email (SendGrid, SMTP2GO), template management"
 requires-python = ">=3.11"
 dependencies = [
     "twilio>=9.0",
     "requests>=2.28",
+    "sendgrid>=6.0",
+    "httpx>=0.24",
 ]
 
 [project.optional-dependencies]

@@ -139,16 +139,34 @@ class WhatsAppTemplate:
 Message = Union[WhatsAppText, WhatsAppMedia, WhatsAppTemplate]
 
 
+# ── Email message types ──────────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class EmailMessage:
+    """An email message."""
+
+    to: str
+    subject: str
+    html_content: str
+    from_email: str
+    from_name: str = ""
+
+
 # ── Provider configuration ────────────────────────────────────────────
 
 
 @dataclass(frozen=True, slots=True)
 class TwilioConfig:
-    """Configuration for creating a Twilio provider."""
+    """Configuration for Twilio services (messaging, Content API).
+
+    ``whatsapp_number`` is required for sending messages via ``TwilioProvider``
+    but not needed for ``TwilioContentAPI`` template management.
+    """
 
     account_sid: str
     auth_token: str
-    whatsapp_number: str  # Must be formatted as whatsapp:+E.164
+    whatsapp_number: str = ""  # Must be formatted as whatsapp:+E.164 for message delivery
     status_callback: str | None = None
 
 
@@ -159,3 +177,17 @@ class WhatsAppPersonalConfig:
     session_public_id: str
     api_key: str
     adapter_base_url: str
+
+
+@dataclass(frozen=True, slots=True)
+class SendGridConfig:
+    """Configuration for creating a SendGrid email provider."""
+
+    api_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class Smtp2GoConfig:
+    """Configuration for creating an SMTP2GO email provider."""
+
+    api_key: str
