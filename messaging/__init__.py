@@ -1,9 +1,67 @@
-"""Messaging gateway library for WhatsApp delivery."""
+"""
+maia-messaging — WhatsApp delivery library.
+
+Standalone messaging gateway extracted from the Meu Assistente IA backend.
+Owns everything from "I have a resolved message and provider config" to
+"here's what happened." The consuming app retains orchestration (who to send
+to, which provider account, quota, logging).
+
+Installation::
+
+    pip install maia-messaging@git+https://github.com/carboni123/maia-messaging.git
+
+Quick start::
+
+    from messaging import TwilioProvider, TwilioConfig, WhatsAppText
+
+    provider = TwilioProvider(TwilioConfig(
+        account_sid="AC...",
+        auth_token="...",
+        whatsapp_number="whatsapp:+14155238886",
+    ))
+    result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello!"))
+    if result.succeeded:
+        print(f"Message SID: {result.external_id}")
+
+With phone fallback (Brazilian 9-digit → 8-digit retry)::
+
+    from messaging import MessagingGateway
+
+    gateway = MessagingGateway(provider)
+    result = gateway.send(message, phone_fallback=True)
+    if result.used_fallback_number:
+        print(f"Delivered using fallback: {result.used_fallback_number}")
+
+For testing::
+
+    from messaging import MockProvider
+
+    provider = MockProvider()
+    result = provider.send(WhatsAppText(to="+5511...", body="test"))
+    assert result.succeeded
+    assert len(provider.sent) == 1
+
+Module overview
+---------------
+- ``types``       — Core dataclasses: Message types, DeliveryResult, configs
+- ``gateway``     — MessagingGateway with phone fallback
+- ``providers/``  — TwilioProvider, WhatsAppPersonalProvider, MockProvider
+- ``phone/``      — Phone normalization (Brazil 8→9 digit, E.164, whatsapp: format)
+- ``pricing``     — WhatsApp template cost calculator
+
+What this library does NOT own (stays in the consuming app):
+- Database models and CommunicationLog creation
+- Integration/credential resolution (which Twilio account to use)
+- Quota enforcement and billing
+- Session lifecycle and routing
+- Template CRUD (Twilio Content API management)
+- WhatsApp session lifecycle (QR code, connection status)
+"""
 
 from .gateway import MessagingGateway
 from .mock import MockProvider
 from .phone import denormalize_phone_for_whatsapp, format_whatsapp_number, normalize_phone, normalize_whatsapp_id, phones_match
-from .pricing import calculate_template_cost
+from .pricing import TEMPLATE_PRICING, calculate_template_cost
 from .providers.base import MessagingProvider
 from .providers.twilio import TwilioProvider, empty_messaging_response_xml
 from .providers.whatsapp_personal import WhatsAppPersonalProvider
@@ -45,5 +103,6 @@ __all__ = [
     "normalize_whatsapp_id",
     "phones_match",
     # Pricing
+    "TEMPLATE_PRICING",
     "calculate_template_cost",
 ]
