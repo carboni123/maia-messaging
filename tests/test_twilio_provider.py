@@ -75,6 +75,51 @@ class TestTwilioSendMedia:
         assert call_kwargs.kwargs["media_url"] == ["https://example.com/file.pdf"]
         assert call_kwargs.kwargs["body"] == "Report"
 
+    def test_send_media_caption_truncated(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM456", status="queued", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        long_caption = "x" * 2000
+        msg = WhatsAppMedia(
+            to="whatsapp:+5511999999999",
+            media_urls=["https://example.com/file.pdf"],
+            caption=long_caption,
+        )
+        provider.send(msg)
+
+        call_kwargs = provider._client.messages.create.call_args
+        assert len(call_kwargs.kwargs["body"]) == 1532
+
+    def test_send_media_no_caption(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM456", status="queued", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        msg = WhatsAppMedia(
+            to="whatsapp:+5511999999999",
+            media_urls=["https://example.com/file.pdf"],
+        )
+        result = provider.send(msg)
+
+        assert result.succeeded
+        call_kwargs = provider._client.messages.create.call_args
+        assert "body" not in call_kwargs.kwargs
+
+    def test_send_media_includes_status_callback(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM456", status="queued", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        msg = WhatsAppMedia(
+            to="whatsapp:+5511999999999",
+            media_urls=["https://example.com/file.pdf"],
+        )
+        provider.send(msg)
+
+        call_kwargs = provider._client.messages.create.call_args
+        assert call_kwargs.kwargs["status_callback"] == "https://example.com/webhook/status"
+
     def test_send_media_no_urls_fails(self, twilio_config: TwilioConfig):
         provider = _make_provider(twilio_config)
         result = provider.send(WhatsAppMedia(to="whatsapp:+5511999999999"))
@@ -187,6 +232,60 @@ class TestTwilioFetchStatus:
         assert result is not None
         assert result.status == DeliveryStatus.FAILED
         assert not result.succeeded
+
+
+class TestTwilioSendAsync:
+    def test_send_async_delegates_to_sync(self, twilio_config: TwilioConfig):
+        import asyncio
+
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM_ASYNC", status="sent", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        result = asyncio.run(
+            provider.send_async(WhatsAppText(to="whatsapp:+5511999999999", body="Hi"))
+        )
+
+        assert result.succeeded
+        assert result.external_id == "SM_ASYNC"
+        provider._client.messages.create.assert_called_once()
+
+
+class TestTwilioStatusMapping:
+    """Tests for _map_twilio_status covering all Twilio status strings."""
+
+    def test_accepted_maps_to_queued(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM1", status="accepted", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello"))
+        assert result.status == DeliveryStatus.QUEUED
+
+    def test_sending_maps_to_queued(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM1", status="sending", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello"))
+        assert result.status == DeliveryStatus.QUEUED
+
+    def test_received_maps_to_delivered(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM1", status="received", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello"))
+        assert result.status == DeliveryStatus.DELIVERED
+
+    def test_none_status_maps_to_queued(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM1", error_code=None, error_message=None)
+        mock_msg.status = None
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello"))
+        assert result.status == DeliveryStatus.QUEUED
 
 
 class TestEmptyMessagingResponseXml:

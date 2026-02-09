@@ -4,6 +4,8 @@ from messaging import (
     DeliveryResult,
     MessagingGateway,
     MockProvider,
+    WhatsAppMedia,
+    WhatsAppTemplate,
     WhatsAppText,
 )
 
@@ -97,6 +99,68 @@ class TestPhoneFallback:
         assert not result.succeeded
         # Only one attempt (no Brazilian fallback possible)
         assert len(provider.sent) == 1
+
+
+class TestPhoneFallbackMedia:
+    """Fallback works for WhatsAppMedia messages (not just WhatsAppText)."""
+
+    def test_media_fallback_on_invalid_number(self):
+        call_count = 0
+        results = [
+            DeliveryResult.fail("The number is not a valid WhatsApp user"),
+            DeliveryResult.ok(external_id="SM_media_fallback"),
+        ]
+
+        class FallbackProvider:
+            def send(self, message):
+                nonlocal call_count
+                result = results[call_count]
+                call_count += 1
+                return result
+
+            def fetch_status(self, external_id):
+                return None
+
+        gateway = MessagingGateway(FallbackProvider())
+        msg = WhatsAppMedia(
+            to="whatsapp:+5551998644323",
+            media_urls=["https://example.com/photo.jpg"],
+        )
+        result = gateway.send(msg, phone_fallback=True)
+
+        assert result.succeeded
+        assert result.external_id == "SM_media_fallback"
+        assert result.used_fallback_number == "whatsapp:+555198644323"
+        assert call_count == 2
+
+    def test_template_fallback_on_invalid_number(self):
+        call_count = 0
+        results = [
+            DeliveryResult.fail("The number is not a valid WhatsApp user"),
+            DeliveryResult.ok(external_id="SM_tpl_fallback"),
+        ]
+
+        class FallbackProvider:
+            def send(self, message):
+                nonlocal call_count
+                result = results[call_count]
+                call_count += 1
+                return result
+
+            def fetch_status(self, external_id):
+                return None
+
+        gateway = MessagingGateway(FallbackProvider())
+        msg = WhatsAppTemplate(
+            to="whatsapp:+5551998644323",
+            content_sid="HX123",
+            content_variables={"1": "João"},
+        )
+        result = gateway.send(msg, phone_fallback=True)
+
+        assert result.succeeded
+        assert result.external_id == "SM_tpl_fallback"
+        assert call_count == 2
 
 
 class TestFetchStatus:

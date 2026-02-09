@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from messaging import WhatsAppMedia, WhatsAppPersonalConfig, WhatsAppTemplate, WhatsAppText
+from messaging import DeliveryStatus, WhatsAppMedia, WhatsAppPersonalConfig, WhatsAppTemplate, WhatsAppText
 from messaging.providers.whatsapp_personal import WhatsAppPersonalProvider
 
 
@@ -158,6 +158,213 @@ class TestWhatsAppSendMedia:
 
         assert not result.succeeded
         assert "adapter rejected media" in (result.error_message or "").lower()
+
+
+class TestWhatsAppMediaMimeRouting:
+    """Verify that different MIME types route to the correct adapter endpoint."""
+
+    def _make_success_response(self, msg_id: str = "media_ok") -> MagicMock:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {"Content-Type": "application/json"}
+        resp.json.return_value = {"id": {"_serialized": msg_id}}
+        resp.raise_for_status = MagicMock()
+        return resp
+
+    def test_image_routes_to_send_image(self, whatsapp_personal_config: WhatsAppPersonalConfig):
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+
+        with patch("messaging.providers.whatsapp_personal.requests.post", return_value=self._make_success_response()) as mock_post:
+            msg = WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/photo.jpg"],
+                media_types=["image/jpeg"],
+            )
+            result = provider.send(msg)
+
+        assert result.succeeded
+        call_url = mock_post.call_args.args[0]
+        assert call_url.endswith("/api/sendImage")
+
+    def test_video_routes_to_send_video(self, whatsapp_personal_config: WhatsAppPersonalConfig):
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+
+        with patch("messaging.providers.whatsapp_personal.requests.post", return_value=self._make_success_response()) as mock_post:
+            msg = WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/clip.mp4"],
+                media_types=["video/mp4"],
+            )
+            result = provider.send(msg)
+
+        assert result.succeeded
+        call_url = mock_post.call_args.args[0]
+        assert call_url.endswith("/api/sendVideo")
+
+    def test_audio_routes_to_send_voice(self, whatsapp_personal_config: WhatsAppPersonalConfig):
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+
+        with patch("messaging.providers.whatsapp_personal.requests.post", return_value=self._make_success_response()) as mock_post:
+            msg = WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/voice.ogg"],
+                media_types=["audio/ogg"],
+            )
+            result = provider.send(msg)
+
+        assert result.succeeded
+        call_url = mock_post.call_args.args[0]
+        assert call_url.endswith("/api/sendVoice")
+
+    def test_document_routes_to_send_file(self, whatsapp_personal_config: WhatsAppPersonalConfig):
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+
+        with patch("messaging.providers.whatsapp_personal.requests.post", return_value=self._make_success_response()) as mock_post:
+            msg = WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/report.pdf"],
+                media_types=["application/pdf"],
+                media_filenames=["report.pdf"],
+            )
+            result = provider.send(msg)
+
+        assert result.succeeded
+        call_url = mock_post.call_args.args[0]
+        assert call_url.endswith("/api/sendFile")
+
+
+class TestWhatsAppMediaCaptionFlow:
+    """Caption is sent as separate text message first, then media without caption."""
+
+    def _make_text_response(self) -> MagicMock:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {"Content-Type": "application/json"}
+        resp.json.return_value = {"payload": {"MessageSid": "text_001"}}
+        resp.raise_for_status = MagicMock()
+        return resp
+
+    def _make_media_response(self) -> MagicMock:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {"Content-Type": "application/json"}
+        resp.json.return_value = {"id": {"_serialized": "media_001"}}
+        resp.raise_for_status = MagicMock()
+        return resp
+
+    def test_caption_sent_as_text_then_media_without_caption(
+        self, whatsapp_personal_config: WhatsAppPersonalConfig,
+    ):
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+        responses = [self._make_text_response(), self._make_media_response()]
+
+        with patch("messaging.providers.whatsapp_personal.requests.post", side_effect=responses) as mock_post:
+            msg = WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/photo.jpg"],
+                media_types=["image/jpeg"],
+                caption="Look at this!",
+            )
+            result = provider.send(msg)
+
+        assert result.succeeded
+        # First call: sendText with caption
+        first_call = mock_post.call_args_list[0]
+        assert first_call.args[0].endswith("/api/sendText")
+        assert first_call.kwargs["json"]["text"] == "Look at this!"
+        # Second call: sendImage without caption
+        second_call = mock_post.call_args_list[1]
+        assert second_call.args[0].endswith("/api/sendImage")
+        assert "caption" not in second_call.kwargs["json"]
+
+
+class TestWhatsAppMultiFileMedia:
+    """Multi-file sends loop through each media URL."""
+
+    def _make_response(self, msg_id: str) -> MagicMock:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {"Content-Type": "application/json"}
+        resp.json.return_value = {"id": {"_serialized": msg_id}}
+        resp.raise_for_status = MagicMock()
+        return resp
+
+    def test_multiple_files_sent_individually(
+        self, whatsapp_personal_config: WhatsAppPersonalConfig,
+    ):
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+        responses = [self._make_response("id_1"), self._make_response("id_2")]
+
+        with patch("messaging.providers.whatsapp_personal.requests.post", side_effect=responses) as mock_post:
+            msg = WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=[
+                    "https://example.com/photo.jpg",
+                    "https://example.com/doc.pdf",
+                ],
+                media_types=["image/jpeg", "application/pdf"],
+                media_filenames=["photo.jpg", "doc.pdf"],
+            )
+            result = provider.send(msg)
+
+        assert result.succeeded
+        assert mock_post.call_count == 2
+        # First goes to sendImage, second to sendFile
+        assert mock_post.call_args_list[0].args[0].endswith("/api/sendImage")
+        assert mock_post.call_args_list[1].args[0].endswith("/api/sendFile")
+        # external_id is from first successful send
+        assert result.external_id == "id_1"
+
+    def test_partial_failure_returns_failed_status_with_id(
+        self, whatsapp_personal_config: WhatsAppPersonalConfig,
+    ):
+        """When some files succeed and others fail, status=FAILED but external_id is set."""
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+
+        success_resp = self._make_response("id_ok")
+        error_resp = MagicMock()
+        error_resp.status_code = 200
+        error_resp.headers = {"Content-Type": "application/json"}
+        error_resp.json.return_value = {"error": "file too large"}
+        error_resp.raise_for_status = MagicMock()
+
+        with patch("messaging.providers.whatsapp_personal.requests.post", side_effect=[success_resp, error_resp]):
+            msg = WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=[
+                    "https://example.com/photo.jpg",
+                    "https://example.com/huge.zip",
+                ],
+                media_types=["image/jpeg", "application/zip"],
+            )
+            result = provider.send(msg)
+
+        # Has errors but also has a successful send
+        assert result.status == DeliveryStatus.FAILED
+        assert result.external_id == "id_ok"
+        assert "file too large" in (result.error_message or "")
+
+    def test_all_files_fail(
+        self, whatsapp_personal_config: WhatsAppPersonalConfig,
+    ):
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+
+        error_resp = MagicMock()
+        error_resp.status_code = 200
+        error_resp.headers = {"Content-Type": "application/json"}
+        error_resp.json.return_value = {"error": "upload failed"}
+        error_resp.raise_for_status = MagicMock()
+
+        with patch("messaging.providers.whatsapp_personal.requests.post", return_value=error_resp):
+            msg = WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/f1.pdf", "https://example.com/f2.pdf"],
+                media_types=["application/pdf", "application/pdf"],
+            )
+            result = provider.send(msg)
+
+        assert not result.succeeded
+        assert result.external_id is None
 
 
 class TestWhatsAppTemplate:
