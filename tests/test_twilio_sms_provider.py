@@ -145,7 +145,7 @@ class TestTwilioSMSAsync:
         mock_msg = MagicMock(sid="SM123", status="queued", error_code=None, error_message=None)
         provider._client.messages.create = MagicMock(return_value=mock_msg)
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             provider.send_async(SMSMessage(to="+5511999999999", body="Async SMS"))
         )
         assert result.succeeded
