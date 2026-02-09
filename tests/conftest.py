@@ -2,7 +2,7 @@
 
 import pytest
 
-from messaging import MockProvider, SendGridConfig, Smtp2GoConfig, TwilioConfig, WhatsAppPersonalConfig
+from messaging import MockProvider, SendGridConfig, Smtp2GoConfig, TwilioConfig, TwilioSMSConfig, WhatsAppPersonalConfig
 
 
 @pytest.fixture
@@ -32,6 +32,16 @@ def sendgrid_config() -> SendGridConfig:
 @pytest.fixture
 def smtp2go_config() -> Smtp2GoConfig:
     return Smtp2GoConfig(api_key="smtp2go_test_key")
+
+
+@pytest.fixture
+def twilio_sms_config() -> TwilioSMSConfig:
+    return TwilioSMSConfig(
+        account_sid="ACtest123",
+        auth_token="test_token_456",
+        from_number="+14155238886",
+        status_callback="https://example.com/webhook/sms-status",
+    )
 
 
 @pytest.fixture

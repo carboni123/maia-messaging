@@ -78,12 +78,14 @@ Config  +  Message  -->  Provider.send()  -->  DeliveryResult
 | WhatsApp | `WhatsAppPersonalProvider` | `WhatsAppPersonalConfig` | `WhatsAppText`, `WhatsAppMedia` |
 | Email | `SendGridProvider` | `SendGridConfig` | `EmailMessage` |
 | Email | `Smtp2GoProvider` | `Smtp2GoConfig` | `EmailMessage` |
+| SMS | `TwilioSMSProvider` | `TwilioSMSConfig` | `SMSMessage` |
 | Test | `MockProvider` | None | Any `Message` type |
 
 ### Protocols
 
 - **`MessagingProvider`** — `send(Message) -> DeliveryResult` + `fetch_status(external_id) -> DeliveryResult | None`
 - **`EmailProvider`** — `send(EmailMessage) -> DeliveryResult`
+- **`SMSProvider`** — `send(SMSMessage) -> DeliveryResult` + `fetch_status(external_id) -> DeliveryResult | None`
 
 ### Gateway layer
 

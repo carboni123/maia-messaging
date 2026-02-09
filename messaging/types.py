@@ -153,6 +153,17 @@ class EmailMessage:
     from_name: str = ""
 
 
+# ── SMS message types ───────────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class SMSMessage:
+    """A plain text SMS message."""
+
+    to: str    # E.164 format, e.g. "+5511999999999"
+    body: str
+
+
 # ── Provider configuration ────────────────────────────────────────────
 
 
@@ -191,3 +202,13 @@ class Smtp2GoConfig:
     """Configuration for creating an SMTP2GO email provider."""
 
     api_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class TwilioSMSConfig:
+    """Configuration for sending SMS via Twilio."""
+
+    account_sid: str
+    auth_token: str
+    from_number: str  # E.164 format, e.g. "+14155238886"
+    status_callback: str | None = None

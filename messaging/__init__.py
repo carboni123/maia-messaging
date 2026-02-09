@@ -77,6 +77,7 @@ Module overview
 - ``gateway``       — MessagingGateway with phone fallback
 - ``providers/``    — TwilioProvider, WhatsAppPersonalProvider, MockProvider
 - ``email/``        — SendGridProvider, Smtp2GoProvider
+- ``sms/``          — TwilioSMSProvider
 - ``content_api``   — TwilioContentAPI for template CRUD
 - ``phone/``        — Phone normalization (Brazil 8→9 digit, E.164, whatsapp: format)
 - ``pricing``       — WhatsApp template cost calculator
@@ -99,15 +100,18 @@ from .pricing import TEMPLATE_PRICING, calculate_template_cost
 from .providers.base import MessagingProvider
 from .providers.twilio import TwilioProvider, empty_messaging_response_xml
 from .providers.whatsapp_personal import WhatsAppPersonalProvider
+from .sms import SMSProvider, TwilioSMSProvider
 from .types import (
     DeliveryResult,
     DeliveryStatus,
     EmailMessage,
     GatewayResult,
     Message,
+    SMSMessage,
     SendGridConfig,
     Smtp2GoConfig,
     TwilioConfig,
+    TwilioSMSConfig,
     WhatsAppMedia,
     WhatsAppPersonalConfig,
     WhatsAppTemplate,
@@ -145,6 +149,12 @@ __all__ = [
     "EmailMessage",
     "SendGridConfig",
     "Smtp2GoConfig",
+    # SMS Providers
+    "SMSProvider",
+    "TwilioSMSProvider",
+    # Types — SMS
+    "SMSMessage",
+    "TwilioSMSConfig",
     # Phone
     "denormalize_phone_for_whatsapp",
     "format_whatsapp_number",
