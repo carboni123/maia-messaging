@@ -4,7 +4,7 @@ Multi-channel messaging library for the Meu Assistente IA platform.
 
 Owns the delivery layer: everything from "I have a resolved message and provider config" to "here's what happened." The consuming app keeps orchestration (credential lookup, quota, logging).
 
-Supports WhatsApp (Twilio + Personal), Email (SendGrid + SMTP2GO), and Twilio Content API template management.
+Supports WhatsApp (Twilio + Personal), Email (SendGrid + SMTP2GO), SMS (Twilio), and Twilio Content API template management.
 
 ## Install
 
@@ -120,6 +120,21 @@ qr = api.create_quick_reply(
 )
 ```
 
+### Send SMS via Twilio
+
+```python
+from messaging import TwilioSMSProvider, TwilioSMSConfig, SMSMessage
+
+provider = TwilioSMSProvider(TwilioSMSConfig(
+    account_sid="AC...",
+    auth_token="...",
+    from_number="+14155238886",
+))
+result = provider.send(SMSMessage(to="+5511999999999", body="Your code is 123456"))
+if result.succeeded:
+    print(result.external_id)  # Twilio SID
+```
+
 ### Phone fallback via Gateway
 
 Brazilian phone numbers have a 9-digit / 8-digit ambiguity. The `MessagingGateway` handles automatic retry:
@@ -197,6 +212,9 @@ messaging/
     base.py            # EmailProvider protocol
     sendgrid.py        # SendGridProvider
     smtp2go.py         # Smtp2GoProvider
+  sms/
+    base.py            # SMSProvider protocol
+    twilio.py          # TwilioSMSProvider
   phone/
     normalize.py       # normalize_phone, format_whatsapp_number, phones_match
     brazil.py          # Brazil-specific 8↔9 digit rules
@@ -217,10 +235,12 @@ messaging/
 | `WhatsAppMedia` | Media message (`to`, `media_urls`, `caption`) |
 | `WhatsAppTemplate` | Template message (`to`, `content_sid`, `content_variables`) |
 | `EmailMessage` | Email message (`to`, `subject`, `html_content`, `from_email`, `from_name`) |
+| `SMSMessage` | SMS message (`to`, `body`) |
 | `TwilioConfig` | Twilio credentials + whatsapp number |
 | `WhatsAppPersonalConfig` | WWjs adapter credentials |
 | `SendGridConfig` | SendGrid API key |
 | `Smtp2GoConfig` | SMTP2GO API key |
+| `TwilioSMSConfig` | Twilio SMS credentials + from number |
 
 ### Provider protocols
 
@@ -237,6 +257,14 @@ Email providers implement:
 ```python
 class EmailProvider(Protocol):
     def send(self, message: EmailMessage) -> DeliveryResult: ...
+```
+
+SMS providers implement:
+
+```python
+class SMSProvider(Protocol):
+    def send(self, message: SMSMessage) -> DeliveryResult: ...
+    def fetch_status(self, external_id: str) -> DeliveryResult | None: ...
 ```
 
 ### Template management
@@ -293,7 +321,7 @@ ruff check messaging/ tests/
 
 ## Tests
 
-164 tests total, all run in <0.3s with zero external dependencies.
+176 tests total, all run in <0.3s with zero external dependencies.
 
 - `test_types.py` — DeliveryResult, DeliveryStatus.precedence, message dataclasses
 - `test_gateway.py` — Phone fallback logic, status fetch
@@ -301,6 +329,7 @@ ruff check messaging/ tests/
 - `test_whatsapp_provider.py` — HTTP adapter mocked, dispatch + response mapping
 - `test_sendgrid_provider.py` — SendGrid SDK mocked, email dispatch
 - `test_smtp2go_provider.py` — httpx mocked, SMTP2GO API dispatch
+- `test_twilio_sms_provider.py` — Twilio SMS mocked, send + status polling
 - `test_content_api.py` — Template CRUD, quick-reply, error handling
 - `test_phone_normalize.py` — Brazil normalization, format_whatsapp_number, phones_match
 - `test_pricing.py` — Template cost calculation

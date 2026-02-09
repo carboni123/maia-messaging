@@ -23,6 +23,19 @@ Quick start — WhatsApp via Twilio::
     if result.succeeded:
         print(f"Message SID: {result.external_id}")
 
+Quick start — SMS via Twilio::
+
+    from messaging import TwilioSMSProvider, TwilioSMSConfig, SMSMessage
+
+    provider = TwilioSMSProvider(TwilioSMSConfig(
+        account_sid="AC...",
+        auth_token="...",
+        from_number="+14155238886",
+    ))
+    result = provider.send(SMSMessage(to="+5511999999999", body="Your code is 123456"))
+    if result.succeeded:
+        print(f"SMS SID: {result.external_id}")
+
 Quick start — Email via SendGrid::
 
     from messaging import SendGridProvider, SendGridConfig, EmailMessage

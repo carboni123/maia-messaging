@@ -24,14 +24,15 @@ mypy messaging/
 
 ## Architecture
 
-The library has six layers:
+The library has seven layers:
 
 1. **Types** (`types.py`) — Frozen dataclasses for messages, results, and configs. These are the public contract.
 2. **WhatsApp Providers** (`providers/`) — `TwilioProvider` and `WhatsAppPersonalProvider` implement the `MessagingProvider` protocol. Each wraps one external service.
 3. **Email Providers** (`email/`) — `SendGridProvider` and `Smtp2GoProvider` implement the `EmailProvider` protocol.
-4. **Content API** (`content_api.py`) — `TwilioContentAPI` for WhatsApp template CRUD via the Twilio Content API.
-5. **Gateway** (`gateway.py`) — Optional orchestration layer that adds cross-cutting concerns (phone fallback for Brazilian numbers).
-6. **Phone** (`phone/`) — Pure functions for phone number normalization. Brazil-specific logic in `brazil.py`, generic in `normalize.py`.
+4. **SMS Providers** (`sms/`) — `TwilioSMSProvider` implements the `SMSProvider` protocol.
+5. **Content API** (`content_api.py`) — `TwilioContentAPI` for WhatsApp template CRUD via the Twilio Content API.
+6. **Gateway** (`gateway.py`) — Optional orchestration layer that adds cross-cutting concerns (phone fallback for Brazilian numbers).
+7. **Phone** (`phone/`) — Pure functions for phone number normalization. Brazil-specific logic in `brazil.py`, generic in `normalize.py`.
 
 Plus `pricing.py` (WhatsApp template costs) and `mock.py` (test provider).
 
@@ -40,6 +41,7 @@ Plus `pricing.py` (WhatsApp template costs) and `mock.py` (test provider).
 - All message types are frozen dataclasses with `slots=True`
 - WhatsApp providers return `DeliveryResult`, never raise for delivery failures
 - Email providers return `DeliveryResult`, never raise for delivery failures
+- SMS providers return `DeliveryResult`, never raise for delivery failures
 - `TwilioContentAPI` methods raise `TwilioContentAPIError` on failure
 - `DeliveryResult.ok()` and `DeliveryResult.fail()` are the preferred constructors
 - Phone functions accept `str | None` and return `str | None` (null-safe)
@@ -59,4 +61,11 @@ Plus `pricing.py` (WhatsApp template costs) and `mock.py` (test provider).
 1. Create `email/your_provider.py` implementing `EmailProvider`
 2. Add a config dataclass to `types.py`
 3. Export from `email/__init__.py` and `__init__.py`
+4. Add unit tests in `tests/test_your_provider.py`
+
+## Adding a new SMS provider
+
+1. Create `sms/your_provider.py` implementing `SMSProvider`
+2. Add a config dataclass to `types.py`
+3. Export from `sms/__init__.py` and `__init__.py`
 4. Add unit tests in `tests/test_your_provider.py`
