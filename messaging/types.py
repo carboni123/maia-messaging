@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Union
+from typing import Any, Union
 
 
 class DeliveryStatus(str, Enum):
@@ -136,7 +136,17 @@ class WhatsAppTemplate:
     content_variables: dict[str, str] = field(default_factory=dict)
 
 
-Message = Union[WhatsAppText, WhatsAppMedia, WhatsAppTemplate]
+@dataclass(frozen=True, slots=True)
+class MetaWhatsAppTemplate:
+    """A WhatsApp template message sent via Meta Cloud API."""
+
+    to: str
+    template_name: str
+    language_code: str  # e.g. "en_US", "pt_BR"
+    components: list[dict[str, Any]] = field(default_factory=list)
+
+
+Message = Union[WhatsAppText, WhatsAppMedia, WhatsAppTemplate, MetaWhatsAppTemplate]
 
 
 # ── Email message types ──────────────────────────────────────────────
@@ -188,6 +198,15 @@ class WhatsAppPersonalConfig:
     session_public_id: str
     api_key: str
     adapter_base_url: str
+
+
+@dataclass(frozen=True, slots=True)
+class MetaWhatsAppConfig:
+    """Configuration for the Meta WhatsApp Cloud API provider."""
+
+    phone_number_id: str
+    access_token: str
+    api_version: str = "v21.0"
 
 
 @dataclass(frozen=True, slots=True)

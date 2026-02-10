@@ -14,6 +14,7 @@ from messaging.types import (
     DeliveryResult,
     DeliveryStatus,
     Message,
+    MetaWhatsAppTemplate,
     WhatsAppMedia,
     WhatsAppPersonalConfig,
     WhatsAppTemplate,
@@ -63,7 +64,7 @@ class WhatsAppPersonalProvider:
             return self._send_text(message)
         if isinstance(message, WhatsAppMedia):
             return self._send_media(message)
-        if isinstance(message, WhatsAppTemplate):
+        if isinstance(message, (WhatsAppTemplate, MetaWhatsAppTemplate)):
             return DeliveryResult.fail("WhatsApp Personal does not support template messages")
         return DeliveryResult.fail(f"Unsupported message type: {type(message).__name__}")
 

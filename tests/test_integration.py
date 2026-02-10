@@ -21,6 +21,8 @@ from twilio.base.exceptions import TwilioRestException
 from messaging import (
     DeliveryStatus,
     MessagingGateway,
+    MetaWhatsAppConfig,
+    MetaWhatsAppTemplate,
     TwilioConfig,
     TwilioProvider,
     WhatsAppMedia,
@@ -29,6 +31,7 @@ from messaging import (
     WhatsAppTemplate,
     WhatsAppText,
 )
+from messaging.providers.meta import MetaWhatsAppProvider
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────
@@ -545,3 +548,125 @@ class TestNetworkFailureE2E:
 
         assert not result.succeeded
         assert "Network error" in (result.error_message or "")
+
+
+# ── Meta WhatsApp Cloud API: Text end-to-end ─────────────────────────
+
+
+def _meta_ok(wamid: str = "wamid.meta123") -> MagicMock:
+    """Fake Meta API success response."""
+    resp = MagicMock()
+    resp.json.return_value = {
+        "messaging_product": "whatsapp",
+        "contacts": [{"input": "5511999999999", "wa_id": "5511999999999"}],
+        "messages": [{"id": wamid}],
+    }
+    return resp
+
+
+@pytest.fixture
+def meta_provider() -> MetaWhatsAppProvider:
+    """MetaWhatsAppProvider for integration tests."""
+    return MetaWhatsAppProvider(
+        MetaWhatsAppConfig(phone_number_id="999888777", access_token="EAAintegration")
+    )
+
+
+class TestMetaWhatsAppTextE2E:
+    """Full flow: WhatsAppText → Gateway → MetaWhatsAppProvider → Meta API."""
+
+    def test_text_message_arrives_at_meta_with_correct_payload(self, meta_provider: MetaWhatsAppProvider):
+        patcher, mock_client = _mock_meta_httpx(_meta_ok())
+        gateway = MessagingGateway(meta_provider)
+
+        try:
+            msg = WhatsAppText(to="whatsapp:+5511999999999", body="Hello from integration")
+            result = gateway.send(msg)
+        finally:
+            patcher.stop()
+
+        assert result.succeeded
+        assert result.external_id == "wamid.meta123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "text"
+        assert payload["text"]["body"] == "Hello from integration"
+
+
+class TestMetaWhatsAppTemplateE2E:
+    """Full flow: MetaWhatsAppTemplate → Gateway → MetaWhatsAppProvider → Meta API."""
+
+    def test_template_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        patcher, mock_client = _mock_meta_httpx(_meta_ok("wamid.tmpl_e2e"))
+        gateway = MessagingGateway(meta_provider)
+
+        try:
+            msg = MetaWhatsAppTemplate(
+                to="+5511999999999",
+                template_name="order_update",
+                language_code="pt_BR",
+                components=[{"type": "body", "parameters": [{"type": "text", "text": "John"}]}],
+            )
+            result = gateway.send(msg)
+        finally:
+            patcher.stop()
+
+        assert result.succeeded
+        assert result.external_id == "wamid.tmpl_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "template"
+        assert payload["template"]["name"] == "order_update"
+        assert payload["template"]["language"]["code"] == "pt_BR"
+
+
+class TestCrossProviderTemplateRejection:
+    """Verify providers correctly reject incompatible template types."""
+
+    def test_twilio_rejects_meta_template(self, twilio_provider: TwilioProvider):
+        gateway = MessagingGateway(twilio_provider)
+        msg = MetaWhatsAppTemplate(
+            to="+5511999999999",
+            template_name="hello",
+            language_code="en_US",
+        )
+        result = gateway.send(msg)
+        assert not result.succeeded
+        assert "MetaWhatsAppTemplate" in (result.error_message or "")
+
+    def test_meta_rejects_twilio_template(self, meta_provider: MetaWhatsAppProvider):
+        patcher, _ = _mock_meta_httpx(_meta_ok())
+        gateway = MessagingGateway(meta_provider)
+
+        try:
+            msg = WhatsAppTemplate(to="+5511999999999", content_sid="HX123", content_variables={"1": "John"})
+            result = gateway.send(msg)
+        finally:
+            patcher.stop()
+
+        assert not result.succeeded
+        assert "MetaWhatsAppTemplate" in (result.error_message or "")
+
+    def test_whatsapp_personal_rejects_meta_template(self, whatsapp_provider: WhatsAppPersonalProvider):
+        gateway = MessagingGateway(whatsapp_provider)
+        msg = MetaWhatsAppTemplate(
+            to="+5511999999999",
+            template_name="hello",
+            language_code="en_US",
+        )
+        result = gateway.send(msg)
+        assert not result.succeeded
+        assert "template" in (result.error_message or "").lower()
+
+
+def _mock_meta_httpx(mock_response: MagicMock):
+    """Patch httpx.Client for Meta provider tests."""
+    patcher = patch("messaging.providers.meta.httpx.Client")
+    mock_client_cls = patcher.start()
+    mock_client = MagicMock()
+    mock_client.post = MagicMock(return_value=mock_response)
+    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
+    mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+    return patcher, mock_client

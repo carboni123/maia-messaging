@@ -11,7 +11,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from .phone import denormalize_phone_for_whatsapp
-from .types import DeliveryResult, DeliveryStatus, GatewayResult, WhatsAppMedia, WhatsAppTemplate, WhatsAppText
+from .types import DeliveryResult, DeliveryStatus, GatewayResult, MetaWhatsAppTemplate, WhatsAppMedia, WhatsAppTemplate, WhatsAppText
 
 if TYPE_CHECKING:
     from .providers.base import MessagingProvider
@@ -104,6 +104,6 @@ def _get_to(message: Message) -> str:
 
 def _replace_to(message: Message, new_to: str) -> Message:
     """Create a copy of the message with a different 'to' number."""
-    if isinstance(message, (WhatsAppText, WhatsAppMedia, WhatsAppTemplate)):
+    if isinstance(message, (WhatsAppText, WhatsAppMedia, WhatsAppTemplate, MetaWhatsAppTemplate)):
         return dataclasses.replace(message, to=new_to)
     return message  # Unreachable for known types

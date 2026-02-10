@@ -27,7 +27,7 @@ mypy messaging/
 The library has eight layers:
 
 1. **Types** (`types.py`) — Frozen dataclasses for messages, results, and configs. These are the public contract.
-2. **WhatsApp Providers** (`providers/`) — `TwilioProvider` and `WhatsAppPersonalProvider` implement the `MessagingProvider` protocol. Each wraps one external service.
+2. **WhatsApp Providers** (`providers/`) — `TwilioProvider`, `MetaWhatsAppProvider`, and `WhatsAppPersonalProvider` implement the `MessagingProvider` protocol. Each wraps one external service.
 3. **Email Providers** (`email/`) — `SendGridProvider` and `Smtp2GoProvider` implement the `EmailProvider` protocol.
 4. **SMS Providers** (`sms/`) — `TwilioSMSProvider` implements the `SMSProvider` protocol.
 5. **Telegram Providers** (`telegram/`) — `TelegramBotProvider` implements the `TelegramProvider` protocol. Sends text, photo, document, and video messages via the Telegram Bot API.

@@ -51,6 +51,18 @@ Quick start — Email via SendGrid::
     if result.succeeded:
         print("Email sent!")
 
+Quick start — WhatsApp via Meta Cloud API::
+
+    from messaging import MetaWhatsAppProvider, MetaWhatsAppConfig, WhatsAppText
+
+    provider = MetaWhatsAppProvider(MetaWhatsAppConfig(
+        phone_number_id="123456789",
+        access_token="EAAxxxxxxx...",
+    ))
+    result = provider.send(WhatsAppText(to="+5511999999999", body="Hello!"))
+    if result.succeeded:
+        print(f"Message ID: {result.external_id}")
+
 Quick start — Telegram via Bot API::
 
     from messaging import TelegramBotProvider, TelegramConfig, TelegramText
@@ -97,7 +109,7 @@ Module overview
 ---------------
 - ``types``         — Core dataclasses: Message types, DeliveryResult, configs
 - ``gateway``       — MessagingGateway with phone fallback
-- ``providers/``    — TwilioProvider, WhatsAppPersonalProvider, MockProvider
+- ``providers/``    — TwilioProvider, MetaWhatsAppProvider, WhatsAppPersonalProvider, MockProvider
 - ``email/``        — SendGridProvider, Smtp2GoProvider
 - ``sms/``          — TwilioSMSProvider
 - ``telegram/``     — TelegramBotProvider (Telegram Bot API)
@@ -121,6 +133,7 @@ from .mock import MockProvider
 from .phone import denormalize_phone_for_whatsapp, format_whatsapp_number, normalize_phone, normalize_whatsapp_id, phones_match
 from .pricing import TEMPLATE_PRICING, calculate_template_cost
 from .providers.base import MessagingProvider
+from .providers.meta import MetaWhatsAppProvider
 from .providers.twilio import TwilioProvider, empty_messaging_response_xml
 from .providers.whatsapp_personal import WhatsAppPersonalProvider
 from .sms import SMSProvider, TwilioSMSProvider
@@ -131,6 +144,8 @@ from .types import (
     EmailMessage,
     GatewayResult,
     Message,
+    MetaWhatsAppConfig,
+    MetaWhatsAppTemplate,
     SMSMessage,
     SendGridConfig,
     TelegramConfig,
@@ -150,6 +165,7 @@ __all__ = [
     "MessagingGateway",
     # WhatsApp Providers
     "MessagingProvider",
+    "MetaWhatsAppProvider",
     "TwilioProvider",
     "WhatsAppPersonalProvider",
     "MockProvider",
@@ -167,6 +183,8 @@ __all__ = [
     "DeliveryStatus",
     "GatewayResult",
     "Message",
+    "MetaWhatsAppConfig",
+    "MetaWhatsAppTemplate",
     "TwilioConfig",
     "WhatsAppMedia",
     "WhatsAppPersonalConfig",

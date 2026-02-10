@@ -2,7 +2,7 @@
 
 import pytest
 
-from messaging import MockProvider, SendGridConfig, Smtp2GoConfig, TelegramConfig, TwilioConfig, TwilioSMSConfig, WhatsAppPersonalConfig
+from messaging import MetaWhatsAppConfig, MockProvider, SendGridConfig, Smtp2GoConfig, TelegramConfig, TwilioConfig, TwilioSMSConfig, WhatsAppPersonalConfig
 
 
 @pytest.fixture
@@ -42,6 +42,11 @@ def twilio_sms_config() -> TwilioSMSConfig:
         from_number="+14155238886",
         status_callback="https://example.com/webhook/sms-status",
     )
+
+
+@pytest.fixture
+def meta_whatsapp_config() -> MetaWhatsAppConfig:
+    return MetaWhatsAppConfig(phone_number_id="123456789", access_token="EAAtest_token_abc")
 
 
 @pytest.fixture
