@@ -24,15 +24,16 @@ mypy messaging/
 
 ## Architecture
 
-The library has seven layers:
+The library has eight layers:
 
 1. **Types** (`types.py`) — Frozen dataclasses for messages, results, and configs. These are the public contract.
 2. **WhatsApp Providers** (`providers/`) — `TwilioProvider` and `WhatsAppPersonalProvider` implement the `MessagingProvider` protocol. Each wraps one external service.
 3. **Email Providers** (`email/`) — `SendGridProvider` and `Smtp2GoProvider` implement the `EmailProvider` protocol.
 4. **SMS Providers** (`sms/`) — `TwilioSMSProvider` implements the `SMSProvider` protocol.
-5. **Content API** (`content_api.py`) — `TwilioContentAPI` for WhatsApp template CRUD via the Twilio Content API.
-6. **Gateway** (`gateway.py`) — Optional orchestration layer that adds cross-cutting concerns (phone fallback for Brazilian numbers).
-7. **Phone** (`phone/`) — Pure functions for phone number normalization. Brazil-specific logic in `brazil.py`, generic in `normalize.py`.
+5. **Telegram Providers** (`telegram/`) — `TelegramBotProvider` implements the `TelegramProvider` protocol. Sends text, photo, document, and video messages via the Telegram Bot API.
+6. **Content API** (`content_api.py`) — `TwilioContentAPI` for WhatsApp template CRUD via the Twilio Content API.
+7. **Gateway** (`gateway.py`) — Optional orchestration layer that adds cross-cutting concerns (phone fallback for Brazilian numbers).
+8. **Phone** (`phone/`) — Pure functions for phone number normalization. Brazil-specific logic in `brazil.py`, generic in `normalize.py`.
 
 Plus `pricing.py` (WhatsApp template costs) and `mock.py` (test provider).
 
@@ -42,6 +43,7 @@ Plus `pricing.py` (WhatsApp template costs) and `mock.py` (test provider).
 - WhatsApp providers return `DeliveryResult`, never raise for delivery failures
 - Email providers return `DeliveryResult`, never raise for delivery failures
 - SMS providers return `DeliveryResult`, never raise for delivery failures
+- Telegram providers return `DeliveryResult`, never raise for delivery failures
 - `TwilioContentAPI` methods raise `TwilioContentAPIError` on failure
 - `DeliveryResult.ok()` and `DeliveryResult.fail()` are the preferred constructors
 - Phone functions accept `str | None` and return `str | None` (null-safe)
@@ -68,4 +70,11 @@ Plus `pricing.py` (WhatsApp template costs) and `mock.py` (test provider).
 1. Create `sms/your_provider.py` implementing `SMSProvider`
 2. Add a config dataclass to `types.py`
 3. Export from `sms/__init__.py` and `__init__.py`
+4. Add unit tests in `tests/test_your_provider.py`
+
+## Adding a new Telegram provider
+
+1. Create `telegram/your_provider.py` implementing `TelegramProvider`
+2. Add a config dataclass to `types.py`
+3. Export from `telegram/__init__.py` and `__init__.py`
 4. Add unit tests in `tests/test_your_provider.py`

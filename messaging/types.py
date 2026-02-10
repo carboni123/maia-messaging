@@ -212,3 +212,36 @@ class TwilioSMSConfig:
     auth_token: str
     from_number: str  # E.164 format, e.g. "+14155238886"
     status_callback: str | None = None
+
+
+# ── Telegram message types ───────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class TelegramText:
+    """A plain text Telegram message."""
+
+    chat_id: str | int
+    body: str
+    parse_mode: str | None = None  # "HTML", "Markdown", or "MarkdownV2"
+
+
+@dataclass(frozen=True, slots=True)
+class TelegramMedia:
+    """A Telegram message with a media attachment."""
+
+    chat_id: str | int
+    media_url: str
+    media_type: str  # "photo", "document", "video"
+    caption: str | None = None
+    parse_mode: str | None = None
+
+
+# ── Telegram provider configuration ─────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class TelegramConfig:
+    """Configuration for the Telegram Bot API provider."""
+
+    bot_token: str

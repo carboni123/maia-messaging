@@ -51,6 +51,15 @@ Quick start — Email via SendGrid::
     if result.succeeded:
         print("Email sent!")
 
+Quick start — Telegram via Bot API::
+
+    from messaging import TelegramBotProvider, TelegramConfig, TelegramText
+
+    provider = TelegramBotProvider(TelegramConfig(bot_token="123456789:ABCdef..."))
+    result = provider.send(TelegramText(chat_id=12345, body="Hello from Maia!"))
+    if result.succeeded:
+        print(f"Message ID: {result.external_id}")
+
 Template management — Twilio Content API::
 
     from messaging import TwilioContentAPI, TwilioConfig
@@ -91,6 +100,7 @@ Module overview
 - ``providers/``    — TwilioProvider, WhatsAppPersonalProvider, MockProvider
 - ``email/``        — SendGridProvider, Smtp2GoProvider
 - ``sms/``          — TwilioSMSProvider
+- ``telegram/``     — TelegramBotProvider (Telegram Bot API)
 - ``content_api``   — TwilioContentAPI for template CRUD
 - ``phone/``        — Phone normalization (Brazil 8→9 digit, E.164, whatsapp: format)
 - ``pricing``       — WhatsApp template cost calculator
@@ -114,6 +124,7 @@ from .providers.base import MessagingProvider
 from .providers.twilio import TwilioProvider, empty_messaging_response_xml
 from .providers.whatsapp_personal import WhatsAppPersonalProvider
 from .sms import SMSProvider, TwilioSMSProvider
+from .telegram import TelegramBotProvider, TelegramProvider
 from .types import (
     DeliveryResult,
     DeliveryStatus,
@@ -122,6 +133,9 @@ from .types import (
     Message,
     SMSMessage,
     SendGridConfig,
+    TelegramConfig,
+    TelegramMedia,
+    TelegramText,
     Smtp2GoConfig,
     TwilioConfig,
     TwilioSMSConfig,
@@ -168,6 +182,13 @@ __all__ = [
     # Types — SMS
     "SMSMessage",
     "TwilioSMSConfig",
+    # Telegram Providers
+    "TelegramProvider",
+    "TelegramBotProvider",
+    # Types — Telegram
+    "TelegramText",
+    "TelegramMedia",
+    "TelegramConfig",
     # Phone
     "denormalize_phone_for_whatsapp",
     "format_whatsapp_number",
