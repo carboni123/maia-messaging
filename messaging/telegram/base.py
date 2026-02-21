@@ -23,3 +23,7 @@ class TelegramProvider(Protocol):
     def send(self, message: TelegramMessage) -> DeliveryResult:
         """Send a Telegram message and return the delivery result."""
         ...
+
+    async def send_async(self, message: TelegramMessage) -> DeliveryResult:
+        """Send a Telegram message asynchronously."""
+        ...

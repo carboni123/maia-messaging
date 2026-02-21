@@ -130,3 +130,24 @@ class TestSmtp2GoContextManager:
         with provider:
             pass
         provider.close.assert_called_once()
+
+    async def test_async_context_manager_calls_close(self):
+        provider = Smtp2GoProvider(Smtp2GoConfig(api_key="test_key"))
+        provider.close = MagicMock()
+        async with provider:
+            pass
+        provider.close.assert_called_once()
+
+
+class TestSmtp2GoSendAsync:
+    async def test_send_async_returns_result(self):
+        provider, _ = _make_provider(mock_response=MagicMock(status_code=200, text="OK"))
+        result = await provider.send_async(
+            EmailMessage(
+                to="user@example.com",
+                subject="Async Test",
+                html_content="<p>Hello</p>",
+                from_email="noreply@example.com",
+            )
+        )
+        assert result.succeeded

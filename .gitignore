@@ -168,3 +168,4 @@ cython_debug/
 
 /.claude/*
 !/.claude/skills/
+*.skill

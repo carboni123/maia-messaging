@@ -7,7 +7,6 @@ hitting real providers.
 
 from __future__ import annotations
 
-import asyncio
 import random
 import uuid
 from dataclasses import dataclass
@@ -71,8 +70,8 @@ class MockProvider:
         return result
 
     async def send_async(self, message: Message) -> DeliveryResult:
-        """Send a message asynchronously (runs sync send in a thread)."""
-        return await asyncio.to_thread(self.send, message)
+        """Send a message asynchronously (no I/O, runs directly)."""
+        return self.send(message)
 
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
         for record in self.sent:

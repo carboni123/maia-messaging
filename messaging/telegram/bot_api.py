@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from typing import Any
 
 import httpx
@@ -38,6 +39,7 @@ class TelegramBotProvider:
             raise ValueError("bot_token is required")
         self._base_url = f"{TELEGRAM_API_BASE}/bot{config.bot_token}"
         self._client = httpx.Client(timeout=DEFAULT_TIMEOUT_SECONDS)
+        self._lock = threading.Lock()
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -49,6 +51,12 @@ class TelegramBotProvider:
     def __exit__(self, *args: Any) -> None:
         self.close()
 
+    async def __aenter__(self) -> TelegramBotProvider:
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        self.close()
+
     def send(self, message: TelegramMessage) -> DeliveryResult:
         """Send a message via Telegram Bot API."""
         if isinstance(message, TelegramText):
@@ -58,8 +66,11 @@ class TelegramBotProvider:
         return DeliveryResult.fail(f"Unsupported message type: {type(message).__name__}")
 
     async def send_async(self, message: TelegramMessage) -> DeliveryResult:
-        """Send a message asynchronously (runs sync send in a thread)."""
-        return await asyncio.to_thread(self.send, message)
+        """Send a message asynchronously (thread-safe via lock)."""
+        def _send() -> DeliveryResult:
+            with self._lock:
+                return self.send(message)
+        return await asyncio.to_thread(_send)
 
     def _send_text(self, message: TelegramText) -> DeliveryResult:
         """Send a text message via sendMessage."""

@@ -14,6 +14,10 @@ class SMSProvider(Protocol):
         """Send an SMS and return the delivery result."""
         ...
 
+    async def send_async(self, message: SMSMessage) -> DeliveryResult:
+        """Send an SMS asynchronously."""
+        ...
+
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
         """Fetch current delivery status for a previously sent message.
 

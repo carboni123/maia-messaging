@@ -376,3 +376,18 @@ class TestMetaWhatsAppContextManager:
         with provider:
             pass
         provider.close.assert_called_once()
+
+    async def test_async_context_manager_calls_close(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        provider.close = MagicMock()
+        async with provider:
+            pass
+        provider.close.assert_called_once()
+
+
+class TestMetaWhatsAppSendAsync:
+    async def test_send_async_returns_result(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, _ = _make_provider(meta_whatsapp_config, _ok_response("wamid.async1"))
+        result = await provider.send_async(WhatsAppText(to="+5511999999999", body="Hello async"))
+        assert result.succeeded
+        assert result.external_id == "wamid.async1"

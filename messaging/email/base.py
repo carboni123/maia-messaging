@@ -13,3 +13,7 @@ class EmailProvider(Protocol):
     def send(self, message: EmailMessage) -> DeliveryResult:
         """Send an email and return the delivery result."""
         ...
+
+    async def send_async(self, message: EmailMessage) -> DeliveryResult:
+        """Send an email asynchronously."""
+        ...

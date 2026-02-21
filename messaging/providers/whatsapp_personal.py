@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -59,6 +60,7 @@ class WhatsAppPersonalProvider:
         self._config = config
         self._base_url = config.adapter_base_url.rstrip("/")
         self._client = httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS)
+        self._lock = threading.Lock()
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -68,6 +70,12 @@ class WhatsAppPersonalProvider:
         return self
 
     def __exit__(self, *args: Any) -> None:
+        self.close()
+
+    async def __aenter__(self) -> WhatsAppPersonalProvider:
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
         self.close()
 
     def send(self, message: Message) -> DeliveryResult:
@@ -81,8 +89,11 @@ class WhatsAppPersonalProvider:
         return DeliveryResult.fail(f"Unsupported message type: {type(message).__name__}")
 
     async def send_async(self, message: Message) -> DeliveryResult:
-        """Send a message asynchronously (runs sync send in a thread)."""
-        return await asyncio.to_thread(self.send, message)
+        """Send a message asynchronously (thread-safe via lock)."""
+        def _send() -> DeliveryResult:
+            with self._lock:
+                return self.send(message)
+        return await asyncio.to_thread(_send)
 
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
         """WhatsApp Personal adapter does not support status polling."""

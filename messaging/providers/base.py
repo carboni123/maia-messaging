@@ -14,6 +14,10 @@ class MessagingProvider(Protocol):
         """Send a message and return the delivery result."""
         ...
 
+    async def send_async(self, message: Message) -> DeliveryResult:
+        """Send a message asynchronously."""
+        ...
+
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
         """Fetch current delivery status for a previously sent message.
 

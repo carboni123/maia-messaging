@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import threading
 from typing import Any
 
 import httpx
@@ -71,6 +72,7 @@ class MetaWhatsAppProvider:
         self._config = config
         self._url = f"{META_API_BASE}/{config.api_version}/{config.phone_number_id}/messages"
         self._client = httpx.Client(timeout=DEFAULT_TIMEOUT_SECONDS)
+        self._lock = threading.Lock()
         self._headers = {
             "Authorization": f"Bearer {config.access_token}",
             "Content-Type": "application/json",
@@ -84,6 +86,12 @@ class MetaWhatsAppProvider:
         return self
 
     def __exit__(self, *args: Any) -> None:
+        self.close()
+
+    async def __aenter__(self) -> MetaWhatsAppProvider:
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
         self.close()
 
     # ── Public API ────────────────────────────────────────────────
@@ -103,8 +111,11 @@ class MetaWhatsAppProvider:
         return DeliveryResult.fail(f"Unsupported message type: {type(message).__name__}")
 
     async def send_async(self, message: Message) -> DeliveryResult:
-        """Send a message asynchronously (runs sync send in a thread)."""
-        return await asyncio.to_thread(self.send, message)
+        """Send a message asynchronously (thread-safe via lock)."""
+        def _send() -> DeliveryResult:
+            with self._lock:
+                return self.send(message)
+        return await asyncio.to_thread(_send)
 
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
         """Meta Cloud API does not support status polling (webhooks only)."""

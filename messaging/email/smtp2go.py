@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-
+import threading
 from typing import Any
 
 import httpx
@@ -23,6 +23,7 @@ class Smtp2GoProvider:
     def __init__(self, config: Smtp2GoConfig) -> None:
         self._api_key = config.api_key
         self._client = httpx.Client(timeout=DEFAULT_TIMEOUT_SECONDS)
+        self._lock = threading.Lock()
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -32,6 +33,12 @@ class Smtp2GoProvider:
         return self
 
     def __exit__(self, *args: Any) -> None:
+        self.close()
+
+    async def __aenter__(self) -> Smtp2GoProvider:
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
         self.close()
 
     def send(self, message: EmailMessage) -> DeliveryResult:
@@ -66,5 +73,8 @@ class Smtp2GoProvider:
             return DeliveryResult.fail(str(exc))
 
     async def send_async(self, message: EmailMessage) -> DeliveryResult:
-        """Send an email asynchronously (runs sync send in a thread)."""
-        return await asyncio.to_thread(self.send, message)
+        """Send an email asynchronously (thread-safe via lock)."""
+        def _send() -> DeliveryResult:
+            with self._lock:
+                return self.send(message)
+        return await asyncio.to_thread(_send)

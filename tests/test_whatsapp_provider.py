@@ -366,3 +366,21 @@ class TestWhatsAppPersonalContextManager:
         with provider:
             pass
         provider.close.assert_called_once()
+
+    async def test_async_context_manager_calls_close(self, whatsapp_personal_config: WhatsAppPersonalConfig):
+        provider = WhatsAppPersonalProvider(whatsapp_personal_config)
+        provider.close = MagicMock()
+        async with provider:
+            pass
+        provider.close.assert_called_once()
+
+
+class TestWhatsAppPersonalSendAsync:
+    async def test_send_async_returns_result(self, whatsapp_personal_config: WhatsAppPersonalConfig):
+        mock_response = _success_response({
+            "payload": {"MessageSid": "msg_async"}
+        })
+        provider, _ = _make_provider(whatsapp_personal_config, mock_response)
+        result = await provider.send_async(WhatsAppText(to="+5511999999999", body="Hello async"))
+        assert result.succeeded
+        assert result.external_id == "msg_async"
