@@ -1,6 +1,6 @@
 """Tests for the Meta WhatsApp Cloud API provider."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

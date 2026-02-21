@@ -37,7 +37,6 @@ from messaging import (
     WhatsAppText,
 )
 from messaging.gateway import MessagingGateway
-from messaging.types import GatewayResult
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
