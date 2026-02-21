@@ -11,7 +11,7 @@ Import name: `messaging`
 
 - **Zero app dependencies.** This library must never import from the consuming app (no `app.models`, no `app.settings`, no SQLAlchemy, no FastAPI, no Celery). If you need something from the app, it belongs in the app's adapter layer, not here.
 - **No database.** All state is passed in via function arguments and returned via dataclasses.
-- **Tests run in isolation.** `pytest tests/` must pass with only `twilio`, `requests`, `sendgrid`, and `httpx` installed. Mock external boundaries (Twilio SDK, HTTP calls, SendGrid API), never real services.
+- **Tests run in isolation.** `pytest tests/` must pass with only `twilio`, `sendgrid`, and `httpx` installed. Mock external boundaries (Twilio SDK, HTTP calls, SendGrid API), never real services.
 
 ## Development commands
 
@@ -45,7 +45,7 @@ Plus `pricing.py` (WhatsApp template costs) and `mock.py` (test provider).
 - SMS providers return `DeliveryResult`, never raise for delivery failures
 - Telegram providers return `DeliveryResult`, never raise for delivery failures
 - All providers expose `send_async()` via `asyncio.to_thread(self.send, message)` for safe async usage
-- Providers using `httpx` create the client once in `__init__` and expose a `close()` method for cleanup
+- Providers using `httpx` create the client once in `__init__`, expose `close()`, and implement `__enter__`/`__exit__` for context manager usage
 - Twilio SDK providers use `TwilioHttpClient(timeout=10.0)` to prevent indefinite hangs
 - `TwilioContentAPI` methods raise `TwilioContentAPIError` on failure
 - `DeliveryResult.ok()` and `DeliveryResult.fail()` are the preferred constructors

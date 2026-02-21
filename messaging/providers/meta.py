@@ -80,6 +80,12 @@ class MetaWhatsAppProvider:
         """Close the underlying HTTP client."""
         self._client.close()
 
+    def __enter__(self) -> MetaWhatsAppProvider:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
+
     # ── Public API ────────────────────────────────────────────────
 
     def send(self, message: Message) -> DeliveryResult:

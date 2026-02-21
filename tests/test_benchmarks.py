@@ -224,17 +224,6 @@ class TestMetaProviderBenchmarks:
 class TestWhatsAppPersonalBenchmarks:
     @pytest.fixture(autouse=True)
     def _setup(self):
-        self.patcher = patch("messaging.providers.whatsapp_personal.requests.post")
-        mock_post = self.patcher.start()
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.headers = {"Content-Type": "application/json"}
-        mock_resp.json.return_value = {
-            "payload": {"MessageSid": "SM_bench_personal"}
-        }
-        mock_resp.raise_for_status = MagicMock()
-        mock_post.return_value = mock_resp
-
         from messaging.providers.whatsapp_personal import WhatsAppPersonalProvider
 
         self.provider = WhatsAppPersonalProvider(
@@ -244,8 +233,16 @@ class TestWhatsAppPersonalBenchmarks:
                 adapter_base_url="http://localhost:3001",
             )
         )
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
+        mock_resp.json.return_value = {
+            "payload": {"MessageSid": "SM_bench_personal"}
+        }
+        mock_client.post = MagicMock(return_value=mock_resp)
+        self.provider._client = mock_client
         yield
-        self.patcher.stop()
 
     def test_send_text(self, benchmark):
         msg = WhatsAppText(to="+5511999999999", body="Personal bench")

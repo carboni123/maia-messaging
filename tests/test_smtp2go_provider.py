@@ -121,3 +121,12 @@ class TestSmtp2GoSend:
         call_args = mock_client.post.call_args
         assert call_args[0][0] == SMTP2GO_API_URL
         assert call_args.kwargs["headers"]["X-Smtp2go-Api-Key"] == "my_secret_key"
+
+
+class TestSmtp2GoContextManager:
+    def test_context_manager_calls_close(self):
+        provider = Smtp2GoProvider(Smtp2GoConfig(api_key="test_key"))
+        provider.close = MagicMock()
+        with provider:
+            pass
+        provider.close.assert_called_once()

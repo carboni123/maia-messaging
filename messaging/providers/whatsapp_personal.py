@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-import requests
+import httpx
 
 from messaging.types import (
     DeliveryResult,
@@ -58,6 +58,17 @@ class WhatsAppPersonalProvider:
     def __init__(self, config: WhatsAppPersonalConfig) -> None:
         self._config = config
         self._base_url = config.adapter_base_url.rstrip("/")
+        self._client = httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS)
+
+    def close(self) -> None:
+        """Close the underlying HTTP client."""
+        self._client.close()
+
+    def __enter__(self) -> WhatsAppPersonalProvider:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
 
     def send(self, message: Message) -> DeliveryResult:
         """Send a message synchronously."""
@@ -181,22 +192,19 @@ class WhatsAppPersonalProvider:
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = f"{self._base_url}{path}"
         try:
-            response = requests.post(
+            response = self._client.post(
                 url,
                 headers=self._headers(),
                 json=payload,
-                timeout=REQUEST_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
-        except requests.HTTPError as exc:
-            response = exc.response
-            status_code = response.status_code if response is not None else None
-            detail = response.text if response is not None else str(exc)
+        except httpx.HTTPStatusError as exc:
+            resp = exc.response
             raise AdapterRequestError(
-                f"Adapter error ({status_code or 'unknown'}): {detail}",
-                status_code=status_code,
+                f"Adapter error ({resp.status_code}): {resp.text}",
+                status_code=resp.status_code,
             ) from exc
-        except requests.RequestException as exc:
+        except httpx.RequestError as exc:
             raise AdapterRequestError("Network error communicating with adapter") from exc
 
         content_type = response.headers.get("Content-Type", "")

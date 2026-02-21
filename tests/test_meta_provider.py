@@ -367,3 +367,12 @@ class TestFetchStatus:
     def test_returns_none(self, meta_whatsapp_config: MetaWhatsAppConfig):
         provider = MetaWhatsAppProvider(meta_whatsapp_config)
         assert provider.fetch_status("wamid.xxx") is None
+
+
+class TestMetaWhatsAppContextManager:
+    def test_context_manager_calls_close(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        provider.close = MagicMock()
+        with provider:
+            pass
+        provider.close.assert_called_once()

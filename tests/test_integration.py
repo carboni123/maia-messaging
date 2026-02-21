@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from twilio.base.exceptions import TwilioRestException
 
@@ -353,41 +354,41 @@ class TestWhatsAppPersonalTextE2E:
     """Full flow: WhatsAppText → Gateway → WhatsAppPersonalProvider → HTTP adapter."""
 
     def test_text_reaches_adapter_with_correct_payload(self, whatsapp_provider: WhatsAppPersonalProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=MagicMock(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            json=MagicMock(return_value={"payload": {"MessageSid": "wamid.abc123"}}),
+        ))
+        whatsapp_provider._client = mock_client
         gateway = MessagingGateway(whatsapp_provider)
 
-        with patch("messaging.providers.whatsapp_personal.requests.post") as mock_post:
-            mock_post.return_value = MagicMock(
-                status_code=200,
-                headers={"Content-Type": "application/json"},
-                json=MagicMock(return_value={"payload": {"MessageSid": "wamid.abc123"}}),
-            )
-            mock_post.return_value.raise_for_status = MagicMock()
-
-            msg = WhatsAppText(to="+5511999999999", body="Integration test message")
-            result = gateway.send(msg)
+        msg = WhatsAppText(to="+5511999999999", body="Integration test message")
+        result = gateway.send(msg)
 
         assert result.succeeded
         assert result.external_id == "wamid.abc123"
 
-        call_kwargs = mock_post.call_args
-        assert "/api/sendText" in call_kwargs.args[0]
+        call_kwargs = mock_client.post.call_args
+        assert "/api/sendText" in call_kwargs[0][0]
         sent_json = call_kwargs.kwargs["json"]
         assert sent_json["text"] == "Integration test message"
         assert sent_json["chatId"] == "+5511999999999"
 
     def test_adapter_error_propagates_as_failure(self, whatsapp_provider: WhatsAppPersonalProvider):
+        mock_response = MagicMock(status_code=500, text="Internal Server Error")
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "500 Server Error",
+            request=httpx.Request("POST", "http://adapter:3001/api/sendText"),
+            response=mock_response,
+        )
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=mock_response)
+        whatsapp_provider._client = mock_client
         gateway = MessagingGateway(whatsapp_provider)
 
-        with patch("messaging.providers.whatsapp_personal.requests.post") as mock_post:
-            mock_post.return_value = MagicMock(status_code=500)
-            mock_post.return_value.raise_for_status = MagicMock(
-                side_effect=__import__("requests").HTTPError(
-                    response=MagicMock(status_code=500, text="Internal Server Error")
-                )
-            )
-
-            msg = WhatsAppText(to="+5511999999999", body="Should fail")
-            result = gateway.send(msg)
+        msg = WhatsAppText(to="+5511999999999", body="Should fail")
+        result = gateway.send(msg)
 
         assert not result.succeeded
         assert "500" in (result.error_message or "")
@@ -401,8 +402,6 @@ class TestWhatsAppPersonalMediaE2E:
 
     def test_media_sends_text_then_file_separately(self, whatsapp_provider: WhatsAppPersonalProvider):
         """With caption + media, adapter gets 2 calls: sendText then sendImage."""
-        gateway = MessagingGateway(whatsapp_provider)
-
         call_log: list[str] = []
 
         def fake_post(url, **kwargs):
@@ -411,22 +410,25 @@ class TestWhatsAppPersonalMediaE2E:
                 status_code=200,
                 headers={"Content-Type": "application/json"},
             )
-            resp.raise_for_status = MagicMock()
             if "sendText" in url:
                 resp.json = MagicMock(return_value={"payload": {"MessageSid": "text_id"}})
             else:
                 resp.json = MagicMock(return_value={"id": {"_serialized": "media_id"}})
             return resp
 
-        with patch("messaging.providers.whatsapp_personal.requests.post", side_effect=fake_post):
-            msg = WhatsAppMedia(
-                to="+5511999999999",
-                media_urls=["https://cdn.example.com/photo.jpg"],
-                media_types=["image/jpeg"],
-                media_filenames=["photo.jpg"],
-                caption="Check this photo",
-            )
-            result = gateway.send(msg)
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(side_effect=fake_post)
+        whatsapp_provider._client = mock_client
+        gateway = MessagingGateway(whatsapp_provider)
+
+        msg = WhatsAppMedia(
+            to="+5511999999999",
+            media_urls=["https://cdn.example.com/photo.jpg"],
+            media_types=["image/jpeg"],
+            media_filenames=["photo.jpg"],
+            caption="Check this photo",
+        )
+        result = gateway.send(msg)
 
         assert result.succeeded
         # First call: sendText, second call: sendImage
@@ -436,8 +438,6 @@ class TestWhatsAppPersonalMediaE2E:
 
     def test_multiple_media_files_each_get_their_own_call(self, whatsapp_provider: WhatsAppPersonalProvider):
         """Each media URL gets a separate adapter call with correct endpoint."""
-        gateway = MessagingGateway(whatsapp_provider)
-
         call_log: list[str] = []
 
         def fake_post(url, **kwargs):
@@ -446,21 +446,24 @@ class TestWhatsAppPersonalMediaE2E:
                 status_code=200,
                 headers={"Content-Type": "application/json"},
             )
-            resp.raise_for_status = MagicMock()
             resp.json = MagicMock(return_value={"id": "msg_ok"})
             return resp
 
-        with patch("messaging.providers.whatsapp_personal.requests.post", side_effect=fake_post):
-            msg = WhatsAppMedia(
-                to="+5511999999999",
-                media_urls=[
-                    "https://cdn.example.com/doc.pdf",
-                    "https://cdn.example.com/audio.mp3",
-                ],
-                media_types=["application/pdf", "audio/mpeg"],
-                media_filenames=["doc.pdf", "audio.mp3"],
-            )
-            result = gateway.send(msg)
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(side_effect=fake_post)
+        whatsapp_provider._client = mock_client
+        gateway = MessagingGateway(whatsapp_provider)
+
+        msg = WhatsAppMedia(
+            to="+5511999999999",
+            media_urls=[
+                "https://cdn.example.com/doc.pdf",
+                "https://cdn.example.com/audio.mp3",
+            ],
+            media_types=["application/pdf", "audio/mpeg"],
+            media_filenames=["doc.pdf", "audio.mp3"],
+        )
+        result = gateway.send(msg)
 
         assert result.succeeded
         # No caption → no sendText call. 2 media files → 2 calls
@@ -491,20 +494,19 @@ class TestPhoneNormalizationE2E:
 
     def test_whatsapp_prefix_stripped_for_personal_provider(self, whatsapp_provider: WhatsAppPersonalProvider):
         """WhatsApp Personal adapter expects plain E.164, not whatsapp:+ prefix."""
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=MagicMock(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            json=MagicMock(return_value={"payload": {"MessageSid": "ok"}}),
+        ))
+        whatsapp_provider._client = mock_client
         gateway = MessagingGateway(whatsapp_provider)
 
-        with patch("messaging.providers.whatsapp_personal.requests.post") as mock_post:
-            mock_post.return_value = MagicMock(
-                status_code=200,
-                headers={"Content-Type": "application/json"},
-            )
-            mock_post.return_value.raise_for_status = MagicMock()
-            mock_post.return_value.json = MagicMock(return_value={"payload": {"MessageSid": "ok"}})
+        msg = WhatsAppText(to="whatsapp:+5511999999999", body="Hello")
+        gateway.send(msg)
 
-            msg = WhatsAppText(to="whatsapp:+5511999999999", body="Hello")
-            gateway.send(msg)
-
-        sent_json = mock_post.call_args.kwargs["json"]
+        sent_json = mock_client.post.call_args.kwargs["json"]
         # The provider should normalize the chat ID (strip whatsapp: prefix)
         assert sent_json["chatId"] == "+5511999999999"
 
@@ -539,13 +541,13 @@ class TestNetworkFailureE2E:
         assert "DNS resolution failed" in (result.error_message or "")
 
     def test_whatsapp_personal_timeout(self, whatsapp_provider: WhatsAppPersonalProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(side_effect=httpx.ConnectError("Connection timed out"))
+        whatsapp_provider._client = mock_client
         gateway = MessagingGateway(whatsapp_provider)
 
-        with patch("messaging.providers.whatsapp_personal.requests.post") as mock_post:
-            mock_post.side_effect = __import__("requests").ConnectionError("Connection timed out")
-
-            msg = WhatsAppText(to="+5511999999999", body="Hello")
-            result = gateway.send(msg)
+        msg = WhatsAppText(to="+5511999999999", body="Hello")
+        result = gateway.send(msg)
 
         assert not result.succeeded
         assert "Network error" in (result.error_message or "")

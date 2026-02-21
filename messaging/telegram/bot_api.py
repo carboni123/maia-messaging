@@ -43,6 +43,12 @@ class TelegramBotProvider:
         """Close the underlying HTTP client."""
         self._client.close()
 
+    def __enter__(self) -> TelegramBotProvider:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
+
     def send(self, message: TelegramMessage) -> DeliveryResult:
         """Send a message via Telegram Bot API."""
         if isinstance(message, TelegramText):

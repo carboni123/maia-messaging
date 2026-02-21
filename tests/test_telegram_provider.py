@@ -182,3 +182,12 @@ class TestErrorHandling:
 
         assert not result.succeeded
         assert "timeout" in result.error_message
+
+
+class TestTelegramBotContextManager:
+    def test_context_manager_calls_close(self, telegram_config: TelegramConfig):
+        provider = TelegramBotProvider(telegram_config)
+        provider.close = MagicMock()
+        with provider:
+            pass
+        provider.close.assert_called_once()

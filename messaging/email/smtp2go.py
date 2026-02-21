@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from typing import Any
+
 import httpx
 
 from messaging.types import DeliveryResult, DeliveryStatus, EmailMessage, Smtp2GoConfig
@@ -25,6 +27,12 @@ class Smtp2GoProvider:
     def close(self) -> None:
         """Close the underlying HTTP client."""
         self._client.close()
+
+    def __enter__(self) -> Smtp2GoProvider:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
 
     def send(self, message: EmailMessage) -> DeliveryResult:
         """Send an email via SMTP2GO."""
