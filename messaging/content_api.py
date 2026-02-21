@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from twilio.base.exceptions import TwilioRestException  # type: ignore[import-untyped]
+from twilio.http.http_client import TwilioHttpClient  # type: ignore[import-untyped]
 from twilio.rest import Client  # type: ignore[import-untyped]
 from twilio.rest.content.v1.content import ApprovalCreateList  # type: ignore[import-untyped]
 
@@ -185,8 +186,11 @@ class TwilioContentAPI:
         )
     """
 
+    DEFAULT_TIMEOUT_SECONDS = 10.0
+
     def __init__(self, config: TwilioConfig) -> None:
-        self._client = Client(config.account_sid, config.auth_token)
+        http_client = TwilioHttpClient(timeout=self.DEFAULT_TIMEOUT_SECONDS)
+        self._client = Client(config.account_sid, config.auth_token, http_client=http_client)
 
     def create_template(
         self,

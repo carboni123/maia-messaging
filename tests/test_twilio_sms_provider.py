@@ -11,7 +11,8 @@ from messaging.sms.twilio import TwilioSMSProvider
 
 def _make_provider(config: TwilioSMSConfig) -> TwilioSMSProvider:
     """Create a TwilioSMSProvider with a mocked Client."""
-    with patch("messaging.sms.twilio.Client"):
+    with patch("messaging.sms.twilio.Client"), \
+         patch("messaging.sms.twilio.TwilioHttpClient"):
         return TwilioSMSProvider(config)
 
 
@@ -155,7 +156,8 @@ class TestTwilioSMSAsync:
 class TestTwilioSMSInit:
     def test_validates_from_number(self):
         with pytest.raises(ValueError, match="from_number"):
-            with patch("messaging.sms.twilio.Client"):
+            with patch("messaging.sms.twilio.Client"), \
+                 patch("messaging.sms.twilio.TwilioHttpClient"):
                 TwilioSMSProvider(TwilioSMSConfig(
                     account_sid="AC123",
                     auth_token="token",

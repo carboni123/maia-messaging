@@ -15,15 +15,14 @@ from messaging import (
 from messaging.providers.meta import MetaWhatsAppProvider, _normalize_phone
 
 
-def _mock_httpx_client(mock_response: MagicMock):
-    """Patch httpx.Client as a context manager returning a mock with .post()."""
-    patcher = patch("messaging.providers.meta.httpx.Client")
-    mock_client_cls = patcher.start()
+def _make_provider(config: MetaWhatsAppConfig, mock_response: MagicMock | None = None) -> tuple[MetaWhatsAppProvider, MagicMock]:
+    """Create a provider with a mocked httpx client."""
+    provider = MetaWhatsAppProvider(config)
     mock_client = MagicMock()
-    mock_client.post = MagicMock(return_value=mock_response)
-    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
-    mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
-    return patcher, mock_client
+    if mock_response is not None:
+        mock_client.post = MagicMock(return_value=mock_response)
+    provider._client = mock_client
+    return provider, mock_client
 
 
 def _ok_response(wamid: str = "wamid.HBgN") -> MagicMock:
@@ -81,13 +80,9 @@ class TestNormalizePhone:
 
 class TestSendText:
     def test_send_text_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response("wamid.text123"))
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.text123"))
 
-        try:
-            result = provider.send(WhatsAppText(to="+5511999999999", body="Hello!"))
-        finally:
-            patcher.stop()
+        result = provider.send(WhatsAppText(to="+5511999999999", body="Hello!"))
 
         assert result.succeeded
         assert result.status == DeliveryStatus.SENT
@@ -100,13 +95,9 @@ class TestSendText:
         assert payload["text"]["body"] == "Hello!"
 
     def test_send_text_strips_whatsapp_prefix(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
 
-        try:
-            provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hi"))
-        finally:
-            patcher.stop()
+        provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hi"))
 
         payload = mock_client.post.call_args.kwargs["json"]
         assert payload["to"] == "5511999999999"
@@ -118,13 +109,9 @@ class TestSendText:
         assert "No message body" in result.error_message
 
     def test_send_text_includes_auth_header(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
 
-        try:
-            provider.send(WhatsAppText(to="+5511999999999", body="test"))
-        finally:
-            patcher.stop()
+        provider.send(WhatsAppText(to="+5511999999999", body="test"))
 
         headers = mock_client.post.call_args.kwargs["headers"]
         assert headers["Authorization"] == f"Bearer {meta_whatsapp_config.access_token}"
@@ -132,20 +119,16 @@ class TestSendText:
 
 class TestSendMedia:
     def test_send_photo_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response("wamid.photo123"))
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.photo123"))
 
-        try:
-            result = provider.send(
-                WhatsAppMedia(
-                    to="+5511999999999",
-                    media_urls=["https://example.com/photo.jpg"],
-                    media_types=["image/jpeg"],
-                    caption="Look!",
-                )
+        result = provider.send(
+            WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/photo.jpg"],
+                media_types=["image/jpeg"],
+                caption="Look!",
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         assert result.external_id == "wamid.photo123"
@@ -156,19 +139,15 @@ class TestSendMedia:
         assert payload["image"]["caption"] == "Look!"
 
     def test_send_document_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
 
-        try:
-            result = provider.send(
-                WhatsAppMedia(
-                    to="+5511999999999",
-                    media_urls=["https://example.com/report.pdf"],
-                    media_types=["application/pdf"],
-                )
+        result = provider.send(
+            WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/report.pdf"],
+                media_types=["application/pdf"],
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
@@ -177,20 +156,16 @@ class TestSendMedia:
         assert "caption" not in payload["document"]
 
     def test_send_video_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
 
-        try:
-            result = provider.send(
-                WhatsAppMedia(
-                    to="+5511999999999",
-                    media_urls=["https://example.com/clip.mp4"],
-                    media_types=["video/mp4"],
-                    caption="Watch this",
-                )
+        result = provider.send(
+            WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/clip.mp4"],
+                media_types=["video/mp4"],
+                caption="Watch this",
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
@@ -198,38 +173,30 @@ class TestSendMedia:
         assert payload["video"]["link"] == "https://example.com/clip.mp4"
 
     def test_send_audio_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
 
-        try:
-            result = provider.send(
-                WhatsAppMedia(
-                    to="+5511999999999",
-                    media_urls=["https://example.com/voice.ogg"],
-                    media_types=["audio/ogg"],
-                )
+        result = provider.send(
+            WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/voice.ogg"],
+                media_types=["audio/ogg"],
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
         assert payload["type"] == "audio"
 
     def test_unknown_mime_defaults_to_document(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
 
-        try:
-            result = provider.send(
-                WhatsAppMedia(
-                    to="+5511999999999",
-                    media_urls=["https://example.com/file.xyz"],
-                    media_types=["application/octet-stream"],
-                )
+        result = provider.send(
+            WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/file.xyz"],
+                media_types=["application/octet-stream"],
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
@@ -242,23 +209,19 @@ class TestSendMedia:
         assert "No media URLs" in result.error_message
 
     def test_multiple_media_urls_each_sent(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response("wamid.last"))
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.last"))
 
-        try:
-            result = provider.send(
-                WhatsAppMedia(
-                    to="+5511999999999",
-                    media_urls=[
-                        "https://example.com/photo.jpg",
-                        "https://example.com/doc.pdf",
-                    ],
-                    media_types=["image/jpeg", "application/pdf"],
-                    caption="See attached",
-                )
+        result = provider.send(
+            WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=[
+                    "https://example.com/photo.jpg",
+                    "https://example.com/doc.pdf",
+                ],
+                media_types=["image/jpeg", "application/pdf"],
+                caption="See attached",
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         assert mock_client.post.call_count == 2
@@ -284,43 +247,33 @@ class TestSendMedia:
                 return _ok_response("wamid.first")
             return _error_response(400, "File too large")
 
-        patcher = patch("messaging.providers.meta.httpx.Client")
-        mock_client_cls = patcher.start()
         mock_client = MagicMock()
         mock_client.post = MagicMock(side_effect=_side_effect)
-        mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
-        mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+        provider._client = mock_client
 
-        try:
-            result = provider.send(
-                WhatsAppMedia(
-                    to="+5511999999999",
-                    media_urls=["https://example.com/ok.jpg", "https://example.com/big.mp4"],
-                    media_types=["image/jpeg", "video/mp4"],
-                )
+        result = provider.send(
+            WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/ok.jpg", "https://example.com/big.mp4"],
+                media_types=["image/jpeg", "video/mp4"],
             )
-        finally:
-            patcher.stop()
+        )
 
         assert not result.succeeded
         assert "File too large" in result.error_message
 
     def test_audio_caption_not_included(self, meta_whatsapp_config: MetaWhatsAppConfig):
         """Meta Cloud API does not support captions on audio messages."""
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
 
-        try:
-            result = provider.send(
-                WhatsAppMedia(
-                    to="+5511999999999",
-                    media_urls=["https://example.com/voice.ogg"],
-                    media_types=["audio/ogg"],
-                    caption="This caption should be excluded",
-                )
+        result = provider.send(
+            WhatsAppMedia(
+                to="+5511999999999",
+                media_urls=["https://example.com/voice.ogg"],
+                media_types=["audio/ogg"],
+                caption="This caption should be excluded",
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
@@ -330,8 +283,7 @@ class TestSendMedia:
 
 class TestSendTemplate:
     def test_send_template_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response("wamid.tmpl123"))
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.tmpl123"))
 
         components = [
             {
@@ -343,17 +295,14 @@ class TestSendTemplate:
             }
         ]
 
-        try:
-            result = provider.send(
-                MetaWhatsAppTemplate(
-                    to="+5511999999999",
-                    template_name="order_update",
-                    language_code="en_US",
-                    components=components,
-                )
+        result = provider.send(
+            MetaWhatsAppTemplate(
+                to="+5511999999999",
+                template_name="order_update",
+                language_code="en_US",
+                components=components,
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         assert result.external_id == "wamid.tmpl123"
@@ -365,19 +314,15 @@ class TestSendTemplate:
         assert payload["template"]["components"] == components
 
     def test_send_template_without_components(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
 
-        try:
-            result = provider.send(
-                MetaWhatsAppTemplate(
-                    to="+5511999999999",
-                    template_name="hello_world",
-                    language_code="en_US",
-                )
+        result = provider.send(
+            MetaWhatsAppTemplate(
+                to="+5511999999999",
+                template_name="hello_world",
+                language_code="en_US",
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
@@ -394,15 +339,12 @@ class TestSendTemplate:
 
 class TestErrorHandling:
     def test_meta_api_error_response(self, meta_whatsapp_config: MetaWhatsAppConfig):
-        provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher, _ = _mock_httpx_client(
-            _error_response(131030, "Recipient phone number not in allowed list")
+        provider, _ = _make_provider(
+            meta_whatsapp_config,
+            _error_response(131030, "Recipient phone number not in allowed list"),
         )
 
-        try:
-            result = provider.send(WhatsAppText(to="+5511999999999", body="Hello"))
-        finally:
-            patcher.stop()
+        result = provider.send(WhatsAppText(to="+5511999999999", body="Hello"))
 
         assert not result.succeeded
         assert result.status == DeliveryStatus.FAILED
@@ -411,17 +353,11 @@ class TestErrorHandling:
 
     def test_network_error(self, meta_whatsapp_config: MetaWhatsAppConfig):
         provider = MetaWhatsAppProvider(meta_whatsapp_config)
-        patcher = patch("messaging.providers.meta.httpx.Client")
-        mock_client_cls = patcher.start()
         mock_client = MagicMock()
         mock_client.post = MagicMock(side_effect=ConnectionError("timeout"))
-        mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
-        mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+        provider._client = mock_client
 
-        try:
-            result = provider.send(WhatsAppText(to="+5511999999999", body="Hello"))
-        finally:
-            patcher.stop()
+        result = provider.send(WhatsAppText(to="+5511999999999", body="Hello"))
 
         assert not result.succeeded
         assert "timeout" in result.error_message

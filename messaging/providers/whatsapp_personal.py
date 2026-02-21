@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from collections.abc import Mapping
@@ -67,6 +68,10 @@ class WhatsAppPersonalProvider:
         if isinstance(message, (WhatsAppTemplate, MetaWhatsAppTemplate)):
             return DeliveryResult.fail("WhatsApp Personal does not support template messages")
         return DeliveryResult.fail(f"Unsupported message type: {type(message).__name__}")
+
+    async def send_async(self, message: Message) -> DeliveryResult:
+        """Send a message asynchronously (runs sync send in a thread)."""
+        return await asyncio.to_thread(self.send, message)
 
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
         """WhatsApp Personal adapter does not support status polling."""

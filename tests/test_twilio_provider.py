@@ -8,7 +8,8 @@ from messaging.providers.twilio import TwilioProvider, empty_messaging_response_
 
 def _make_provider(config: TwilioConfig) -> TwilioProvider:
     """Create a TwilioProvider with a mocked Client."""
-    with patch("messaging.providers.twilio.Client"):
+    with patch("messaging.providers.twilio.Client"), \
+         patch("messaging.providers.twilio.TwilioHttpClient"):
         return TwilioProvider(config)
 
 

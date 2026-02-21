@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import httpx
@@ -11,6 +12,7 @@ from messaging.types import DeliveryResult, DeliveryStatus, EmailMessage, Smtp2G
 logger = logging.getLogger(__name__)
 
 SMTP2GO_API_URL = "https://api.smtp2go.com/v3/email/send"
+DEFAULT_TIMEOUT_SECONDS = 10.0
 
 
 class Smtp2GoProvider:
@@ -18,6 +20,11 @@ class Smtp2GoProvider:
 
     def __init__(self, config: Smtp2GoConfig) -> None:
         self._api_key = config.api_key
+        self._client = httpx.Client(timeout=DEFAULT_TIMEOUT_SECONDS)
+
+    def close(self) -> None:
+        """Close the underlying HTTP client."""
+        self._client.close()
 
     def send(self, message: EmailMessage) -> DeliveryResult:
         """Send an email via SMTP2GO."""
@@ -29,12 +36,11 @@ class Smtp2GoProvider:
             "html_body": message.html_content,
         }
         try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(
-                    SMTP2GO_API_URL,
-                    json=payload,
-                    headers={"X-Smtp2go-Api-Key": self._api_key},
-                )
+            response = self._client.post(
+                SMTP2GO_API_URL,
+                json=payload,
+                headers={"X-Smtp2go-Api-Key": self._api_key},
+            )
             if 200 <= response.status_code < 300:
                 logger.info("Email sent via SMTP2GO to %s", message.to)
                 return DeliveryResult.ok(status=DeliveryStatus.SENT)
@@ -50,3 +56,7 @@ class Smtp2GoProvider:
         except Exception as exc:
             logger.exception("Unexpected error sending email via SMTP2GO")
             return DeliveryResult.fail(str(exc))
+
+    async def send_async(self, message: EmailMessage) -> DeliveryResult:
+        """Send an email asynchronously (runs sync send in a thread)."""
+        return await asyncio.to_thread(self.send, message)

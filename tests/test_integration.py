@@ -40,7 +40,8 @@ from messaging.providers.meta import MetaWhatsAppProvider
 @pytest.fixture
 def twilio_provider() -> TwilioProvider:
     """TwilioProvider with mocked Twilio SDK Client."""
-    with patch("messaging.providers.twilio.Client"):
+    with patch("messaging.providers.twilio.Client"), \
+         patch("messaging.providers.twilio.TwilioHttpClient"):
         config = TwilioConfig(
             account_sid="ACtest",
             auth_token="secret",
@@ -566,24 +567,24 @@ def _meta_ok(wamid: str = "wamid.meta123") -> MagicMock:
 
 @pytest.fixture
 def meta_provider() -> MetaWhatsAppProvider:
-    """MetaWhatsAppProvider for integration tests."""
-    return MetaWhatsAppProvider(
+    """MetaWhatsAppProvider for integration tests with mocked httpx client."""
+    provider = MetaWhatsAppProvider(
         MetaWhatsAppConfig(phone_number_id="999888777", access_token="EAAintegration")
     )
+    return provider
 
 
 class TestMetaWhatsAppTextE2E:
     """Full flow: WhatsAppText → Gateway → MetaWhatsAppProvider → Meta API."""
 
     def test_text_message_arrives_at_meta_with_correct_payload(self, meta_provider: MetaWhatsAppProvider):
-        patcher, mock_client = _mock_meta_httpx(_meta_ok())
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok())
+        meta_provider._client = mock_client
         gateway = MessagingGateway(meta_provider)
 
-        try:
-            msg = WhatsAppText(to="whatsapp:+5511999999999", body="Hello from integration")
-            result = gateway.send(msg)
-        finally:
-            patcher.stop()
+        msg = WhatsAppText(to="whatsapp:+5511999999999", body="Hello from integration")
+        result = gateway.send(msg)
 
         assert result.succeeded
         assert result.external_id == "wamid.meta123"
@@ -599,19 +600,18 @@ class TestMetaWhatsAppTemplateE2E:
     """Full flow: MetaWhatsAppTemplate → Gateway → MetaWhatsAppProvider → Meta API."""
 
     def test_template_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
-        patcher, mock_client = _mock_meta_httpx(_meta_ok("wamid.tmpl_e2e"))
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.tmpl_e2e"))
+        meta_provider._client = mock_client
         gateway = MessagingGateway(meta_provider)
 
-        try:
-            msg = MetaWhatsAppTemplate(
-                to="+5511999999999",
-                template_name="order_update",
-                language_code="pt_BR",
-                components=[{"type": "body", "parameters": [{"type": "text", "text": "John"}]}],
-            )
-            result = gateway.send(msg)
-        finally:
-            patcher.stop()
+        msg = MetaWhatsAppTemplate(
+            to="+5511999999999",
+            template_name="order_update",
+            language_code="pt_BR",
+            components=[{"type": "body", "parameters": [{"type": "text", "text": "John"}]}],
+        )
+        result = gateway.send(msg)
 
         assert result.succeeded
         assert result.external_id == "wamid.tmpl_e2e"
@@ -637,14 +637,10 @@ class TestCrossProviderTemplateRejection:
         assert "MetaWhatsAppTemplate" in (result.error_message or "")
 
     def test_meta_rejects_twilio_template(self, meta_provider: MetaWhatsAppProvider):
-        patcher, _ = _mock_meta_httpx(_meta_ok())
         gateway = MessagingGateway(meta_provider)
 
-        try:
-            msg = WhatsAppTemplate(to="+5511999999999", content_sid="HX123", content_variables={"1": "John"})
-            result = gateway.send(msg)
-        finally:
-            patcher.stop()
+        msg = WhatsAppTemplate(to="+5511999999999", content_sid="HX123", content_variables={"1": "John"})
+        result = gateway.send(msg)
 
         assert not result.succeeded
         assert "MetaWhatsAppTemplate" in (result.error_message or "")
@@ -659,14 +655,3 @@ class TestCrossProviderTemplateRejection:
         result = gateway.send(msg)
         assert not result.succeeded
         assert "template" in (result.error_message or "").lower()
-
-
-def _mock_meta_httpx(mock_response: MagicMock):
-    """Patch httpx.Client for Meta provider tests."""
-    patcher = patch("messaging.providers.meta.httpx.Client")
-    mock_client_cls = patcher.start()
-    mock_client = MagicMock()
-    mock_client.post = MagicMock(return_value=mock_response)
-    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
-    mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
-    return patcher, mock_client

@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from twilio.base.exceptions import TwilioRestException  # type: ignore[import-untyped]
+from twilio.http.http_client import TwilioHttpClient  # type: ignore[import-untyped]
 from twilio.rest import Client  # type: ignore[import-untyped]
 
 from messaging.providers.twilio import _map_twilio_status
@@ -15,6 +16,7 @@ from messaging.types import DeliveryResult, SMSMessage, TwilioSMSConfig
 logger = logging.getLogger(__name__)
 
 MAX_SMS_CHARS = 1600
+DEFAULT_TIMEOUT_SECONDS = 10.0
 
 
 class TwilioSMSProvider:
@@ -24,7 +26,8 @@ class TwilioSMSProvider:
         if not config.from_number:
             raise ValueError("TwilioSMSConfig.from_number is required for SMS delivery")
         self._config = config
-        self._client = Client(config.account_sid, config.auth_token)
+        http_client = TwilioHttpClient(timeout=DEFAULT_TIMEOUT_SECONDS)
+        self._client = Client(config.account_sid, config.auth_token, http_client=http_client)
 
     def send(self, message: SMSMessage) -> DeliveryResult:
         """Send an SMS synchronously."""

@@ -10,6 +10,7 @@ from typing import Any
 from functools import lru_cache
 
 from twilio.base.exceptions import TwilioRestException  # type: ignore[import-untyped]
+from twilio.http.http_client import TwilioHttpClient  # type: ignore[import-untyped]
 from twilio.rest import Client  # type: ignore[import-untyped]
 from twilio.twiml.messaging_response import MessagingResponse  # type: ignore[import-untyped]
 
@@ -27,6 +28,7 @@ from messaging.types import (
 logger = logging.getLogger(__name__)
 
 MAX_BODY_CHARS = 1532
+DEFAULT_TIMEOUT_SECONDS = 10.0
 
 
 @lru_cache(maxsize=1)
@@ -49,7 +51,8 @@ class TwilioProvider:
         if not config.whatsapp_number:
             raise ValueError("TwilioConfig.whatsapp_number is required for message delivery")
         self._config = config
-        self._client = Client(config.account_sid, config.auth_token)
+        http_client = TwilioHttpClient(timeout=DEFAULT_TIMEOUT_SECONDS)
+        self._client = Client(config.account_sid, config.auth_token, http_client=http_client)
 
     # ── Public API ────────────────────────────────────────────────
 

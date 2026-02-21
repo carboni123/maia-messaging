@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -20,6 +21,7 @@ from .base import TelegramMessage
 logger = logging.getLogger(__name__)
 
 TELEGRAM_API_BASE = "https://api.telegram.org"
+DEFAULT_TIMEOUT_SECONDS = 10.0
 
 _MEDIA_TYPE_ENDPOINTS: dict[str, str] = {
     "photo": "sendPhoto",
@@ -35,6 +37,11 @@ class TelegramBotProvider:
         if not config.bot_token:
             raise ValueError("bot_token is required")
         self._base_url = f"{TELEGRAM_API_BASE}/bot{config.bot_token}"
+        self._client = httpx.Client(timeout=DEFAULT_TIMEOUT_SECONDS)
+
+    def close(self) -> None:
+        """Close the underlying HTTP client."""
+        self._client.close()
 
     def send(self, message: TelegramMessage) -> DeliveryResult:
         """Send a message via Telegram Bot API."""
@@ -43,6 +50,10 @@ class TelegramBotProvider:
         if isinstance(message, TelegramMedia):
             return self._send_media(message)
         return DeliveryResult.fail(f"Unsupported message type: {type(message).__name__}")
+
+    async def send_async(self, message: TelegramMessage) -> DeliveryResult:
+        """Send a message asynchronously (runs sync send in a thread)."""
+        return await asyncio.to_thread(self.send, message)
 
     def _send_text(self, message: TelegramText) -> DeliveryResult:
         """Send a text message via sendMessage."""
@@ -78,9 +89,7 @@ class TelegramBotProvider:
         """Make a POST request to the Telegram Bot API."""
         url = f"{self._base_url}/{method}"
         try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(url, json=payload)
-
+            response = self._client.post(url, json=payload)
             data = response.json()
 
             if data.get("ok"):

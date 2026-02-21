@@ -6,6 +6,7 @@ phone number fallback for Brazilian numbers.
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import logging
 from typing import TYPE_CHECKING
@@ -83,6 +84,15 @@ class MessagingGateway:
                     )
 
         return GatewayResult(delivery=result)
+
+    async def send_async(
+        self,
+        message: Message,
+        *,
+        phone_fallback: bool = False,
+    ) -> GatewayResult:
+        """Send a message asynchronously (runs sync send in a thread)."""
+        return await asyncio.to_thread(self.send, message, phone_fallback=phone_fallback)
 
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
         """Fetch delivery status for a previously sent message."""

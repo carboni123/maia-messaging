@@ -44,11 +44,15 @@ Plus `pricing.py` (WhatsApp template costs) and `mock.py` (test provider).
 - Email providers return `DeliveryResult`, never raise for delivery failures
 - SMS providers return `DeliveryResult`, never raise for delivery failures
 - Telegram providers return `DeliveryResult`, never raise for delivery failures
+- All providers expose `send_async()` via `asyncio.to_thread(self.send, message)` for safe async usage
+- Providers using `httpx` create the client once in `__init__` and expose a `close()` method for cleanup
+- Twilio SDK providers use `TwilioHttpClient(timeout=10.0)` to prevent indefinite hangs
 - `TwilioContentAPI` methods raise `TwilioContentAPIError` on failure
 - `DeliveryResult.ok()` and `DeliveryResult.fail()` are the preferred constructors
 - Phone functions accept `str | None` and return `str | None` (null-safe)
 - Tests are organized by module: `test_twilio_provider.py` tests `providers/twilio.py`
 - Integration tests (`test_integration.py`) wire real library components, only mock the external boundary
+- Benchmark tests (`test_benchmarks.py`) measure provider overhead with `pytest-benchmark`
 
 ## Adding a new WhatsApp provider
 

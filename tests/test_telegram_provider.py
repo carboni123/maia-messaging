@@ -1,6 +1,6 @@
 """Tests for the Telegram Bot API provider."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -8,15 +8,14 @@ from messaging import DeliveryStatus, TelegramConfig, TelegramMedia, TelegramTex
 from messaging.telegram.bot_api import TelegramBotProvider
 
 
-def _mock_httpx_client(mock_response: MagicMock):
-    """Patch httpx.Client as a context manager returning a mock with .post()."""
-    patcher = patch("messaging.telegram.bot_api.httpx.Client")
-    mock_client_cls = patcher.start()
+def _make_provider(config: TelegramConfig, mock_response: MagicMock | None = None) -> tuple[TelegramBotProvider, MagicMock]:
+    """Create a provider with a mocked httpx client."""
+    provider = TelegramBotProvider(config)
     mock_client = MagicMock()
-    mock_client.post = MagicMock(return_value=mock_response)
-    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
-    mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
-    return patcher, mock_client
+    if mock_response is not None:
+        mock_client.post = MagicMock(return_value=mock_response)
+    provider._client = mock_client
+    return provider, mock_client
 
 
 def _ok_response(message_id: int = 42) -> MagicMock:
@@ -39,13 +38,9 @@ class TestTelegramBotProviderInit:
 
 class TestSendText:
     def test_send_text_success(self, telegram_config: TelegramConfig):
-        provider = TelegramBotProvider(telegram_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response(message_id=99))
+        provider, mock_client = _make_provider(telegram_config, _ok_response(message_id=99))
 
-        try:
-            result = provider.send(TelegramText(chat_id=12345, body="Hello!"))
-        finally:
-            patcher.stop()
+        result = provider.send(TelegramText(chat_id=12345, body="Hello!"))
 
         assert result.succeeded
         assert result.status == DeliveryStatus.SENT
@@ -58,39 +53,27 @@ class TestSendText:
         assert "parse_mode" not in payload
 
     def test_send_text_with_parse_mode(self, telegram_config: TelegramConfig):
-        provider = TelegramBotProvider(telegram_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(telegram_config, _ok_response())
 
-        try:
-            result = provider.send(TelegramText(chat_id="12345", body="<b>Bold</b>", parse_mode="HTML"))
-        finally:
-            patcher.stop()
+        result = provider.send(TelegramText(chat_id="12345", body="<b>Bold</b>", parse_mode="HTML"))
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
         assert payload["parse_mode"] == "HTML"
 
     def test_send_text_with_string_chat_id(self, telegram_config: TelegramConfig):
-        provider = TelegramBotProvider(telegram_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(telegram_config, _ok_response())
 
-        try:
-            result = provider.send(TelegramText(chat_id="@mychannel", body="Channel post"))
-        finally:
-            patcher.stop()
+        result = provider.send(TelegramText(chat_id="@mychannel", body="Channel post"))
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
         assert payload["chat_id"] == "@mychannel"
 
     def test_send_text_uses_correct_url(self, telegram_config: TelegramConfig):
-        provider = TelegramBotProvider(telegram_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(telegram_config, _ok_response())
 
-        try:
-            provider.send(TelegramText(chat_id=1, body="test"))
-        finally:
-            patcher.stop()
+        provider.send(TelegramText(chat_id=1, body="test"))
 
         url = mock_client.post.call_args[0][0]
         assert url.endswith("/sendMessage")
@@ -99,20 +82,16 @@ class TestSendText:
 
 class TestSendMedia:
     def test_send_photo_success(self, telegram_config: TelegramConfig):
-        provider = TelegramBotProvider(telegram_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response(message_id=55))
+        provider, mock_client = _make_provider(telegram_config, _ok_response(message_id=55))
 
-        try:
-            result = provider.send(
-                TelegramMedia(
-                    chat_id=12345,
-                    media_url="https://example.com/photo.jpg",
-                    media_type="photo",
-                    caption="Look at this!",
-                )
+        result = provider.send(
+            TelegramMedia(
+                chat_id=12345,
+                media_url="https://example.com/photo.jpg",
+                media_type="photo",
+                caption="Look at this!",
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         assert result.external_id == "55"
@@ -126,19 +105,15 @@ class TestSendMedia:
         assert payload["caption"] == "Look at this!"
 
     def test_send_document_success(self, telegram_config: TelegramConfig):
-        provider = TelegramBotProvider(telegram_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(telegram_config, _ok_response())
 
-        try:
-            result = provider.send(
-                TelegramMedia(
-                    chat_id=12345,
-                    media_url="https://example.com/file.pdf",
-                    media_type="document",
-                )
+        result = provider.send(
+            TelegramMedia(
+                chat_id=12345,
+                media_url="https://example.com/file.pdf",
+                media_type="document",
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         url = mock_client.post.call_args[0][0]
@@ -149,21 +124,17 @@ class TestSendMedia:
         assert "caption" not in payload
 
     def test_send_video_success(self, telegram_config: TelegramConfig):
-        provider = TelegramBotProvider(telegram_config)
-        patcher, mock_client = _mock_httpx_client(_ok_response())
+        provider, mock_client = _make_provider(telegram_config, _ok_response())
 
-        try:
-            result = provider.send(
-                TelegramMedia(
-                    chat_id=12345,
-                    media_url="https://example.com/video.mp4",
-                    media_type="video",
-                    caption="Watch this",
-                    parse_mode="HTML",
-                )
+        result = provider.send(
+            TelegramMedia(
+                chat_id=12345,
+                media_url="https://example.com/video.mp4",
+                media_type="video",
+                caption="Watch this",
+                parse_mode="HTML",
             )
-        finally:
-            patcher.stop()
+        )
 
         assert result.succeeded
         payload = mock_client.post.call_args.kwargs["json"]
@@ -189,13 +160,12 @@ class TestSendMedia:
 
 class TestErrorHandling:
     def test_api_error_response(self, telegram_config: TelegramConfig):
-        provider = TelegramBotProvider(telegram_config)
-        patcher, _ = _mock_httpx_client(_error_response(403, "Forbidden: bot was blocked by the user"))
+        provider, _ = _make_provider(
+            telegram_config,
+            _error_response(403, "Forbidden: bot was blocked by the user"),
+        )
 
-        try:
-            result = provider.send(TelegramText(chat_id=12345, body="Hello"))
-        finally:
-            patcher.stop()
+        result = provider.send(TelegramText(chat_id=12345, body="Hello"))
 
         assert not result.succeeded
         assert result.status == DeliveryStatus.FAILED
@@ -204,17 +174,11 @@ class TestErrorHandling:
 
     def test_network_error(self, telegram_config: TelegramConfig):
         provider = TelegramBotProvider(telegram_config)
-        patcher = patch("messaging.telegram.bot_api.httpx.Client")
-        mock_client_cls = patcher.start()
         mock_client = MagicMock()
         mock_client.post = MagicMock(side_effect=ConnectionError("timeout"))
-        mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
-        mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+        provider._client = mock_client
 
-        try:
-            result = provider.send(TelegramText(chat_id=12345, body="Hello"))
-        finally:
-            patcher.stop()
+        result = provider.send(TelegramText(chat_id=12345, body="Hello"))
 
         assert not result.succeeded
         assert "timeout" in result.error_message

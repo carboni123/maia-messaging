@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from sendgrid import SendGridAPIClient  # type: ignore[import-untyped]
@@ -43,3 +44,7 @@ class SendGridProvider:
         except Exception as exc:
             logger.exception("Unexpected error sending email via SendGrid")
             return DeliveryResult.fail(str(exc))
+
+    async def send_async(self, message: EmailMessage) -> DeliveryResult:
+        """Send an email asynchronously (runs sync send in a thread)."""
+        return await asyncio.to_thread(self.send, message)

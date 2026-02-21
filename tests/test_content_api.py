@@ -16,7 +16,8 @@ from messaging.content_api import (
 
 def _make_api(config: TwilioConfig) -> TwilioContentAPI:
     """Create a TwilioContentAPI with a mocked Client."""
-    with patch("messaging.content_api.Client"):
+    with patch("messaging.content_api.Client"), \
+         patch("messaging.content_api.TwilioHttpClient"):
         return TwilioContentAPI(config)
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 META_API_BASE = "https://graph.facebook.com"
 
 MAX_BODY_CHARS = 4096
+DEFAULT_TIMEOUT_SECONDS = 10.0
 
 # Maps MIME type prefixes to Meta Cloud API media types.
 _MIME_TO_META_TYPE: dict[str, str] = {
@@ -68,6 +70,15 @@ class MetaWhatsAppProvider:
             raise ValueError("access_token is required")
         self._config = config
         self._url = f"{META_API_BASE}/{config.api_version}/{config.phone_number_id}/messages"
+        self._client = httpx.Client(timeout=DEFAULT_TIMEOUT_SECONDS)
+        self._headers = {
+            "Authorization": f"Bearer {config.access_token}",
+            "Content-Type": "application/json",
+        }
+
+    def close(self) -> None:
+        """Close the underlying HTTP client."""
+        self._client.close()
 
     # ── Public API ────────────────────────────────────────────────
 
@@ -84,6 +95,10 @@ class MetaWhatsAppProvider:
                 "MetaWhatsAppProvider does not support WhatsAppTemplate; use MetaWhatsAppTemplate"
             )
         return DeliveryResult.fail(f"Unsupported message type: {type(message).__name__}")
+
+    async def send_async(self, message: Message) -> DeliveryResult:
+        """Send a message asynchronously (runs sync send in a thread)."""
+        return await asyncio.to_thread(self.send, message)
 
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
         """Meta Cloud API does not support status polling (webhooks only)."""
@@ -154,16 +169,11 @@ class MetaWhatsAppProvider:
     def _post(self, payload: dict[str, Any]) -> DeliveryResult:
         """Make a POST request to the Meta WhatsApp Cloud API."""
         try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(
-                    self._url,
-                    json=payload,
-                    headers={
-                        "Authorization": f"Bearer {self._config.access_token}",
-                        "Content-Type": "application/json",
-                    },
-                )
-
+            response = self._client.post(
+                self._url,
+                json=payload,
+                headers=self._headers,
+            )
             data = response.json()
 
             # Meta error response format: {"error": {"message": ..., "code": ...}}
