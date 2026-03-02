@@ -37,7 +37,7 @@ class AdapterRequestError(RuntimeError):
         self.status_code = status_code
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class _AdapterTextResponse:
     """Parsed response from /api/sendText."""
 
@@ -45,7 +45,7 @@ class _AdapterTextResponse:
     error: str | None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class _AdapterMediaResponse:
     """Parsed response from media endpoints."""
 

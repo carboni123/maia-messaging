@@ -40,7 +40,7 @@ class TwilioContentAPIError(RuntimeError):
 # ── Types ─────────────────────────────────────────────────────────────
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class TwilioTemplateResponse:
     """Response data from Twilio Content API template operations."""
 

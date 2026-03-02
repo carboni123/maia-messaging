@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from .types import DeliveryResult, DeliveryStatus, Message
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class SentMessage:
     """Record of a message sent through the MockProvider."""
 
