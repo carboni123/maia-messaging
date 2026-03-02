@@ -12,7 +12,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from .phone import denormalize_phone_for_whatsapp
-from .types import DeliveryResult, DeliveryStatus, GatewayResult, MetaWhatsAppTemplate, WhatsAppMedia, WhatsAppTemplate, WhatsAppText
+from .types import DeliveryResult, GatewayResult, MetaWhatsAppTemplate, WhatsAppMedia, WhatsAppTemplate, WhatsAppText
 
 if TYPE_CHECKING:
     from .providers.base import MessagingProvider
@@ -77,7 +77,7 @@ class MessagingGateway:
                 )
                 fallback_msg = _replace_to(message, fallback_to)
                 fallback_result = self.provider.send(fallback_msg)
-                if fallback_result.status != DeliveryStatus.FAILED:
+                if fallback_result.succeeded:
                     return GatewayResult(
                         delivery=fallback_result,
                         used_fallback_number=fallback_to,
@@ -101,7 +101,7 @@ class MessagingGateway:
 
 def _is_invalid_number_error(result: DeliveryResult) -> bool:
     """Check if a delivery failure indicates an invalid phone number."""
-    if result.status != DeliveryStatus.FAILED:
+    if result.succeeded:
         return False
     error_str = (result.error_message or "").lower()
     return any(indicator in error_str for indicator in _INVALID_NUMBER_INDICATORS)
