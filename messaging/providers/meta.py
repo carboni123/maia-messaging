@@ -90,13 +90,13 @@ class MetaWhatsAppProvider:
     def __enter__(self) -> MetaWhatsAppProvider:
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()
 
     async def __aenter__(self) -> MetaWhatsAppProvider:
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *exc: object) -> None:
         self.close()
 
     # ── Public API ────────────────────────────────────────────────

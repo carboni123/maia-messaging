@@ -48,13 +48,13 @@ class TelegramBotProvider:
     def __enter__(self) -> TelegramBotProvider:
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()
 
     async def __aenter__(self) -> TelegramBotProvider:
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *exc: object) -> None:
         self.close()
 
     def send(self, message: TelegramMessage) -> DeliveryResult:

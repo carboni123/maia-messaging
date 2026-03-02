@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-from typing import Any
 
 import httpx
 
@@ -32,13 +31,13 @@ class Smtp2GoProvider:
     def __enter__(self) -> Smtp2GoProvider:
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()
 
     async def __aenter__(self) -> Smtp2GoProvider:
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *exc: object) -> None:
         self.close()
 
     def send(self, message: EmailMessage) -> DeliveryResult:

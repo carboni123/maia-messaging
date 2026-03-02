@@ -69,13 +69,13 @@ class WhatsAppPersonalProvider:
     def __enter__(self) -> WhatsAppPersonalProvider:
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()
 
     async def __aenter__(self) -> WhatsAppPersonalProvider:
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *exc: object) -> None:
         self.close()
 
     def send(self, message: Message) -> DeliveryResult:
