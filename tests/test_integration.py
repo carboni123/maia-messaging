@@ -24,8 +24,13 @@ from messaging import (
     MessagingGateway,
     MetaWhatsAppConfig,
     MetaWhatsAppTemplate,
+    SMSMessage,
+    TelegramConfig,
+    TelegramMedia,
+    TelegramText,
     TwilioConfig,
     TwilioProvider,
+    TwilioSMSConfig,
     WhatsAppMedia,
     WhatsAppPersonalConfig,
     WhatsAppPersonalProvider,
@@ -33,6 +38,8 @@ from messaging import (
     WhatsAppText,
 )
 from messaging.providers.meta import MetaWhatsAppProvider
+from messaging.sms.twilio import TwilioSMSProvider
+from messaging.telegram.bot_api import TelegramBotProvider
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────
@@ -657,3 +664,205 @@ class TestCrossProviderTemplateRejection:
         result = gateway.send(msg)
         assert not result.succeeded
         assert "template" in (result.error_message or "").lower()
+
+
+# ── Telegram Bot API: End-to-end ─────────────────────────────────
+
+
+def _telegram_ok(message_id: int = 42) -> MagicMock:
+    """Fake Telegram Bot API success response."""
+    resp = MagicMock()
+    resp.json.return_value = {"ok": True, "result": {"message_id": message_id}}
+    return resp
+
+
+@pytest.fixture
+def telegram_provider() -> TelegramBotProvider:
+    """TelegramBotProvider with a mocked httpx client."""
+    provider = TelegramBotProvider(TelegramConfig(bot_token="123456789:ABCdefGHI"))
+    return provider
+
+
+class TestTelegramTextE2E:
+    """Full flow: TelegramText → TelegramBotProvider → Telegram Bot API."""
+
+    def test_text_message_arrives_at_telegram_api(self, telegram_provider: TelegramBotProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_telegram_ok(100))
+        telegram_provider._client = mock_client
+
+        msg = TelegramText(chat_id=12345, body="Hello from integration")
+        result = telegram_provider.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "100"
+        assert result.status == DeliveryStatus.SENT
+
+        call_args = mock_client.post.call_args
+        assert "/sendMessage" in call_args[0][0]
+        payload = call_args.kwargs["json"]
+        assert payload["chat_id"] == 12345
+        assert payload["text"] == "Hello from integration"
+
+    def test_text_with_parse_mode(self, telegram_provider: TelegramBotProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_telegram_ok())
+        telegram_provider._client = mock_client
+
+        msg = TelegramText(chat_id=12345, body="<b>Bold</b>", parse_mode="HTML")
+        telegram_provider.send(msg)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["parse_mode"] == "HTML"
+
+
+class TestTelegramMediaE2E:
+    """Full flow: TelegramMedia → TelegramBotProvider → Telegram Bot API."""
+
+    def test_photo_uses_correct_endpoint(self, telegram_provider: TelegramBotProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_telegram_ok())
+        telegram_provider._client = mock_client
+
+        msg = TelegramMedia(
+            chat_id=12345,
+            media_url="https://example.com/photo.jpg",
+            media_type="photo",
+            caption="A photo",
+        )
+        result = telegram_provider.send(msg)
+
+        assert result.succeeded
+        call_args = mock_client.post.call_args
+        assert "/sendPhoto" in call_args[0][0]
+        payload = call_args.kwargs["json"]
+        assert payload["photo"] == "https://example.com/photo.jpg"
+        assert payload["caption"] == "A photo"
+
+    def test_unsupported_media_type_fails(self, telegram_provider: TelegramBotProvider):
+        msg = TelegramMedia(
+            chat_id=12345,
+            media_url="https://example.com/sticker.webp",
+            media_type="sticker",
+        )
+        result = telegram_provider.send(msg)
+        assert not result.succeeded
+        assert "Unsupported media type" in (result.error_message or "")
+
+
+class TestTelegramErrorE2E:
+    """Telegram API error responses propagate correctly."""
+
+    def test_api_error_returns_failure(self, telegram_provider: TelegramBotProvider):
+        mock_client = MagicMock()
+        error_resp = MagicMock()
+        error_resp.json.return_value = {
+            "ok": False,
+            "error_code": 403,
+            "description": "Forbidden: bot was blocked by the user",
+        }
+        mock_client.post = MagicMock(return_value=error_resp)
+        telegram_provider._client = mock_client
+
+        msg = TelegramText(chat_id=12345, body="Hello")
+        result = telegram_provider.send(msg)
+
+        assert not result.succeeded
+        assert result.error_code == "403"
+        assert "blocked" in (result.error_message or "")
+
+    def test_network_error_returns_failure(self, telegram_provider: TelegramBotProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(side_effect=httpx.ConnectError("Connection refused"))
+        telegram_provider._client = mock_client
+
+        msg = TelegramText(chat_id=12345, body="Hello")
+        result = telegram_provider.send(msg)
+
+        assert not result.succeeded
+
+
+# ── SMS via Twilio: End-to-end ───────────────────────────────────
+
+
+@pytest.fixture
+def sms_provider() -> TwilioSMSProvider:
+    """TwilioSMSProvider with mocked Twilio SDK Client."""
+    with patch("messaging.sms.twilio.Client"), \
+         patch("messaging.sms.twilio.TwilioHttpClient"):
+        config = TwilioSMSConfig(
+            account_sid="ACtest",
+            auth_token="secret",
+            from_number="+14155238886",
+            status_callback="https://app.example.com/webhook/sms-status",
+        )
+        return TwilioSMSProvider(config)
+
+
+class TestSMSTextE2E:
+    """Full flow: SMSMessage → TwilioSMSProvider → Twilio SDK."""
+
+    def test_sms_arrives_at_twilio_with_correct_params(self, sms_provider: TwilioSMSProvider):
+        sms_provider._client.messages.create = MagicMock(
+            return_value=_twilio_msg(sid="SM_sms_e2e", status="queued")
+        )
+
+        msg = SMSMessage(to="+5511999999999", body="Your code is 123456")
+        result = sms_provider.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "SM_sms_e2e"
+        assert result.status == DeliveryStatus.QUEUED
+
+        call_kwargs = sms_provider._client.messages.create.call_args.kwargs
+        assert call_kwargs["to"] == "+5511999999999"
+        assert call_kwargs["from_"] == "+14155238886"
+        assert call_kwargs["body"] == "Your code is 123456"
+        assert call_kwargs["status_callback"] == "https://app.example.com/webhook/sms-status"
+
+    def test_empty_sms_body_rejected(self, sms_provider: TwilioSMSProvider):
+        sms_provider._client.messages.create = MagicMock()
+
+        msg = SMSMessage(to="+5511999999999", body="   ")
+        result = sms_provider.send(msg)
+
+        assert not result.succeeded
+        sms_provider._client.messages.create.assert_not_called()
+
+    def test_sms_long_body_truncated(self, sms_provider: TwilioSMSProvider):
+        sms_provider._client.messages.create = MagicMock(return_value=_twilio_msg())
+
+        msg = SMSMessage(to="+5511999999999", body="x" * 2000)
+        sms_provider.send(msg)
+
+        sent_body = sms_provider._client.messages.create.call_args.kwargs["body"]
+        assert len(sent_body) == 1600
+
+
+class TestSMSErrorE2E:
+    """SMS error handling end-to-end."""
+
+    def test_twilio_error_returns_failure_with_code(self, sms_provider: TwilioSMSProvider):
+        sms_provider._client.messages.create = MagicMock(
+            side_effect=TwilioRestException(
+                400, "https://api.twilio.com",
+                msg="Invalid 'To' Phone Number", code=21211
+            )
+        )
+
+        msg = SMSMessage(to="+invalid", body="Hi")
+        result = sms_provider.send(msg)
+
+        assert not result.succeeded
+        assert result.error_code == "21211"
+
+    def test_network_error_returns_failure(self, sms_provider: TwilioSMSProvider):
+        sms_provider._client.messages.create = MagicMock(
+            side_effect=ConnectionError("Network unreachable")
+        )
+
+        msg = SMSMessage(to="+5511999999999", body="Hi")
+        result = sms_provider.send(msg)
+
+        assert not result.succeeded
+        assert "Network unreachable" in (result.error_message or "")
