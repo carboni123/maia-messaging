@@ -130,7 +130,7 @@ from __future__ import annotations
 from .content_api import TwilioContentAPI, TwilioContentAPIError, TwilioTemplateResponse
 from .email import EmailProvider, SendGridProvider, Smtp2GoProvider
 from .gateway import MessagingGateway
-from .mock import MockProvider
+from .mock import MockProvider, SentMessage
 from .phone import denormalize_phone_for_whatsapp, format_whatsapp_number, normalize_phone, normalize_whatsapp_id, phones_match
 from .pricing import TEMPLATE_PRICING, calculate_template_cost
 from .providers.base import MessagingProvider
@@ -170,6 +170,7 @@ __all__ = [
     "TwilioProvider",
     "WhatsAppPersonalProvider",
     "MockProvider",
+    "SentMessage",
     "empty_messaging_response_xml",
     # Email Providers
     "EmailProvider",
