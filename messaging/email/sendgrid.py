@@ -19,6 +19,15 @@ class SendGridProvider:
     def __init__(self, config: SendGridConfig) -> None:
         self._client = SendGridAPIClient(config.api_key)
 
+    def close(self) -> None:
+        """No-op for SDK-based provider (SendGrid SDK manages its own connections)."""
+
+    def __enter__(self) -> SendGridProvider:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
     def send(self, message: EmailMessage) -> DeliveryResult:
         """Send an email via SendGrid."""
         mail = Mail(

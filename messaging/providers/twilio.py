@@ -54,6 +54,15 @@ class TwilioProvider:
         http_client = TwilioHttpClient(timeout=DEFAULT_TIMEOUT_SECONDS)
         self._client = Client(config.account_sid, config.auth_token, http_client=http_client)
 
+    def close(self) -> None:
+        """No-op for SDK-based provider (Twilio SDK manages its own connections)."""
+
+    def __enter__(self) -> TwilioProvider:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
     # ── Public API ────────────────────────────────────────────────
 
     def send(self, message: Message) -> DeliveryResult:
