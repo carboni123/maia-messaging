@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from messaging import DeliveryStatus, TwilioConfig, WhatsAppMedia, WhatsAppTemplate, WhatsAppText
+from messaging import DeliveryStatus, MetaWhatsAppTemplate, TwilioConfig, WhatsAppMedia, WhatsAppTemplate, WhatsAppText
 from messaging.providers.twilio import TwilioProvider, empty_messaging_response_xml
 
 
@@ -170,6 +170,20 @@ class TestTwilioErrorHandling:
         result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hi"))
         assert not result.succeeded
         assert "timeout" in result.error_message
+
+
+class TestTwilioUnsupportedMessageTypes:
+    def test_meta_template_rejected(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        msg = MetaWhatsAppTemplate(
+            to="+5511999999999",
+            template_name="hello",
+            language_code="en_US",
+        )
+        result = provider.send(msg)
+        assert not result.succeeded
+        assert "MetaWhatsAppTemplate" in (result.error_message or "")
+        assert "MetaWhatsAppProvider" in (result.error_message or "")
 
 
 class TestTwilioStatusCallback:
