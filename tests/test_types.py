@@ -1,6 +1,19 @@
 """Tests for core types."""
 
-from messaging import DeliveryResult, DeliveryStatus, GatewayResult, WhatsAppMedia, WhatsAppTemplate, WhatsAppText
+import pytest
+
+from messaging import (
+    DeliveryResult,
+    DeliveryStatus,
+    GatewayResult,
+    MetaWhatsAppTemplate,
+    SMSMessage,
+    TelegramMedia,
+    TelegramText,
+    WhatsAppMedia,
+    WhatsAppTemplate,
+    WhatsAppText,
+)
 
 
 class TestDeliveryResult:
@@ -95,3 +108,54 @@ class TestMessageTypes:
         )
         assert msg.content_sid == "HX123"
         assert msg.content_variables == {"1": "John"}
+
+    def test_meta_whatsapp_template(self):
+        msg = MetaWhatsAppTemplate(
+            to="+5511999999999",
+            template_name="order_update",
+            language_code="pt_BR",
+            components=[{"type": "body", "parameters": [{"type": "text", "text": "John"}]}],
+        )
+        assert msg.template_name == "order_update"
+        assert msg.language_code == "pt_BR"
+        assert len(msg.components) == 1
+
+    def test_sms_message(self):
+        msg = SMSMessage(to="+5511999999999", body="Your code is 123456")
+        assert msg.to == "+5511999999999"
+        assert msg.body == "Your code is 123456"
+
+    def test_telegram_text(self):
+        msg = TelegramText(chat_id=12345, body="Hello", parse_mode="HTML")
+        assert msg.chat_id == 12345
+        assert msg.body == "Hello"
+        assert msg.parse_mode == "HTML"
+
+    def test_telegram_media(self):
+        msg = TelegramMedia(
+            chat_id=12345,
+            media_url="https://example.com/photo.jpg",
+            media_type="photo",
+            caption="A photo",
+        )
+        assert msg.media_type == "photo"
+        assert msg.caption == "A photo"
+
+
+class TestFrozenDataclasses:
+    """All message types and results are frozen — mutation should raise."""
+
+    def test_delivery_result_is_frozen(self):
+        result = DeliveryResult.ok(external_id="SM123")
+        with pytest.raises(AttributeError):
+            result.status = DeliveryStatus.FAILED  # type: ignore[misc]
+
+    def test_whatsapp_text_is_frozen(self):
+        msg = WhatsAppText(to="+5511999999999", body="Hello")
+        with pytest.raises(AttributeError):
+            msg.body = "Mutated"  # type: ignore[misc]
+
+    def test_gateway_result_is_frozen(self):
+        result = GatewayResult(delivery=DeliveryResult.ok())
+        with pytest.raises(AttributeError):
+            result.used_fallback_number = "+5511"  # type: ignore[misc]
