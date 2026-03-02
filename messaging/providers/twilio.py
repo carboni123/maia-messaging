@@ -5,9 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
-
 from functools import lru_cache
+from typing import Any
 
 from twilio.base.exceptions import TwilioRestException  # type: ignore[import-untyped]
 from twilio.http.http_client import TwilioHttpClient  # type: ignore[import-untyped]
