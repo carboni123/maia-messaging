@@ -164,7 +164,8 @@ class MetaWhatsAppProvider:
             if not last_result.succeeded:
                 return last_result
 
-        assert last_result is not None  # guaranteed by non-empty media_urls
+        if last_result is None:  # pragma: no cover — unreachable after non-empty check
+            return DeliveryResult.fail("No media URLs processed")
         return last_result
 
     def _send_template(self, message: MetaWhatsAppTemplate) -> DeliveryResult:
