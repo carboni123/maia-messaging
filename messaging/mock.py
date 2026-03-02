@@ -55,6 +55,15 @@ class MockProvider:
         self.fixed_result = fixed_result
         self.sent: list[SentMessage] = []
 
+    def close(self) -> None:
+        """No-op — MockProvider has no resources to release."""
+
+    def __enter__(self) -> MockProvider:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
     def send(self, message: Message) -> DeliveryResult:
         if self.fixed_result is not None:
             result = self.fixed_result
