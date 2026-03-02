@@ -6,6 +6,8 @@ Pricing is based on Meta's Business API rates for Brazil (default market).
 
 from __future__ import annotations
 
+__all__ = ["TEMPLATE_PRICING", "calculate_template_cost"]
+
 from decimal import Decimal
 
 # WhatsApp template pricing by category (USD per message)

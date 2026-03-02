@@ -37,7 +37,12 @@ _MIME_TO_META_TYPE: dict[str, str] = {
 
 
 def _normalize_phone(to: str) -> str:
-    """Strip 'whatsapp:' prefix and '+' to get a plain phone number for Meta API."""
+    """Strip 'whatsapp:' prefix and '+' to get a plain phone number for Meta API.
+
+    This intentionally does NOT delegate to ``phone/normalize.py``, which returns
+    +E.164 format.  The Meta Cloud API requires bare digits without the leading
+    ``+``, so this helper applies its own simpler transformation.
+    """
     phone = re.sub(r"^whatsapp:", "", to, flags=re.IGNORECASE)
     return phone.lstrip("+")
 

@@ -8,7 +8,8 @@ This module does NOT handle message delivery (that's ``TwilioProvider.send``).
 
 from __future__ import annotations
 
-import contextlib
+__all__ = ["TwilioContentAPI", "TwilioContentAPIError", "TwilioTemplateResponse"]
+
 import json
 import logging
 import secrets
@@ -233,8 +234,21 @@ class TwilioContentAPI:
             content_api = self._client.content.v1.contents
 
             if template_sid:
-                with contextlib.suppress(TwilioRestException):
+                try:
                     content_api(template_sid).delete()
+                except TwilioRestException as exc:
+                    if exc.status == 404:
+                        logger.debug(
+                            "Template %s already deleted (404), proceeding with create",
+                            template_sid,
+                        )
+                    else:
+                        logger.warning(
+                            "Failed to delete template %s before replace: status=%s code=%s",
+                            template_sid,
+                            exc.status,
+                            exc.code,
+                        )
 
             response = self._client.request(
                 "POST",

@@ -101,3 +101,29 @@ class TestSendGridSend:
         )
 
         assert result.succeeded
+
+
+class TestSendGridContextManager:
+    def test_context_manager_calls_close(self):
+        provider = _make_provider()
+        provider.close = MagicMock()
+        with provider:
+            pass
+        provider.close.assert_called_once()
+
+
+class TestSendGridSendAsync:
+    async def test_send_async_returns_result(self):
+        provider = _make_provider()
+        mock_response = MagicMock(status_code=202, body=b"")
+        provider._client.send = MagicMock(return_value=mock_response)
+
+        result = await provider.send_async(
+            EmailMessage(
+                to="user@example.com",
+                subject="Async Test",
+                html_content="<p>Hello</p>",
+                from_email="noreply@example.com",
+            )
+        )
+        assert result.succeeded

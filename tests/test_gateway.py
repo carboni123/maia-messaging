@@ -177,3 +177,39 @@ class TestFetchStatus:
     def test_returns_none_for_unknown_id(self, mock_provider: MockProvider):
         gateway = MessagingGateway(mock_provider)
         assert gateway.fetch_status("unknown_id") is None
+
+
+class TestGatewaySendAsync:
+    async def test_send_async_returns_result(self, mock_provider: MockProvider):
+        gateway = MessagingGateway(mock_provider)
+        msg = WhatsAppText(to="whatsapp:+5511999999999", body="Hello")
+        result = await gateway.send_async(msg)
+        assert result.succeeded
+        assert len(mock_provider.sent) == 1
+
+    async def test_send_async_forwards_phone_fallback(self):
+        """Verify phone_fallback=True is forwarded through asyncio.to_thread."""
+        call_count = 0
+        results = [
+            DeliveryResult.fail("The number is not a valid WhatsApp user"),
+            DeliveryResult.ok(external_id="SM_async_fallback"),
+        ]
+
+        class FallbackProvider:
+            def send(self, message):
+                nonlocal call_count
+                result = results[call_count]
+                call_count += 1
+                return result
+
+            def fetch_status(self, external_id):
+                return None
+
+        gateway = MessagingGateway(FallbackProvider())
+        msg = WhatsAppText(to="whatsapp:+5551998644323", body="Hello")
+        result = await gateway.send_async(msg, phone_fallback=True)
+
+        assert result.succeeded
+        assert result.external_id == "SM_async_fallback"
+        assert result.used_fallback_number == "whatsapp:+555198644323"
+        assert call_count == 2

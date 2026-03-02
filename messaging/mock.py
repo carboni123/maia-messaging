@@ -7,6 +7,8 @@ hitting real providers.
 
 from __future__ import annotations
 
+__all__ = ["MockProvider", "SentMessage"]
+
 import random
 import uuid
 from dataclasses import dataclass

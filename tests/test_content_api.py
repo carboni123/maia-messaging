@@ -1,9 +1,11 @@
 """Tests for the Twilio Content API module."""
 
 import json
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+from twilio.base.exceptions import TwilioRestException
 
 from messaging import TwilioConfig
 from messaging.content_api import (
@@ -138,6 +140,59 @@ class TestCreateTemplate:
 
         assert result["sid"] == ""
         assert result["friendly_name"] == "test_tpl"
+
+    def test_create_template_logs_debug_on_404_delete(self, twilio_config: TwilioConfig, caplog):
+        """404 on delete is expected (template already gone) — should log debug, not warning."""
+        api = _make_api(twilio_config)
+        mock_response = MagicMock(
+            status_code=201,
+            content=json.dumps({"sid": "HX_NEW", "friendly_name": "test_tpl"}).encode(),
+        )
+        api._client.request = MagicMock(return_value=mock_response)
+
+        exc_404 = TwilioRestException(404, "https://content.twilio.com", msg="Not found")
+        exc_404.status = 404
+        exc_404.code = 20404
+        mock_content_instance = MagicMock(delete=MagicMock(side_effect=exc_404))
+        api._client.content.v1.contents = MagicMock(return_value=mock_content_instance)
+
+        with caplog.at_level(logging.DEBUG, logger="messaging.content_api"):
+            result = api.create_template(
+                friendly_name="test_tpl",
+                language="en",
+                types={"twilio_text": {"body": "Hi"}},
+                template_sid="HX_GONE",
+            )
+
+        assert result["sid"] == "HX_NEW"
+        assert "already deleted" in caplog.text
+        assert not any(r.levelno >= logging.WARNING for r in caplog.records)
+
+    def test_create_template_logs_warning_on_non_404_delete_error(self, twilio_config: TwilioConfig, caplog):
+        """Non-404 errors on delete should log a warning but still proceed with create."""
+        api = _make_api(twilio_config)
+        mock_response = MagicMock(
+            status_code=201,
+            content=json.dumps({"sid": "HX_NEW", "friendly_name": "test_tpl"}).encode(),
+        )
+        api._client.request = MagicMock(return_value=mock_response)
+
+        exc_500 = TwilioRestException(500, "https://content.twilio.com", msg="Internal error")
+        exc_500.status = 500
+        exc_500.code = 50000
+        mock_content_instance = MagicMock(delete=MagicMock(side_effect=exc_500))
+        api._client.content.v1.contents = MagicMock(return_value=mock_content_instance)
+
+        with caplog.at_level(logging.WARNING, logger="messaging.content_api"):
+            result = api.create_template(
+                friendly_name="test_tpl",
+                language="en",
+                types={"twilio_text": {"body": "Hi"}},
+                template_sid="HX_OLD",
+            )
+
+        assert result["sid"] == "HX_NEW"
+        assert "Failed to delete template" in caplog.text
 
     def test_create_template_deletes_existing_when_sid_provided(self, twilio_config: TwilioConfig):
         api = _make_api(twilio_config)

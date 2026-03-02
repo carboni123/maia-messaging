@@ -6,6 +6,8 @@ phone number fallback for Brazilian numbers.
 
 from __future__ import annotations
 
+__all__ = ["MessagingGateway"]
+
 import asyncio
 import dataclasses
 import logging

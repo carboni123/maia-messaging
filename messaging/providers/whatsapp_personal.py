@@ -236,7 +236,13 @@ class WhatsAppPersonalProvider:
 
 
 def _normalize_chat_id(phone_number: str) -> str | None:
-    """Normalize a phone number to a WhatsApp chat ID."""
+    """Normalize a phone number to a WhatsApp chat ID.
+
+    This intentionally does NOT delegate to ``phone/normalize.py`` because
+    (1) it must handle group JIDs (``@g.us`` suffixes) which the phone module
+    doesn't support, and (2) the adapter expects ``+digits`` directly, not the
+    ``whatsapp:+E.164`` prefix that the phone module is unaware of.
+    """
     trimmed = phone_number.strip()
 
     # Group JID passthrough
