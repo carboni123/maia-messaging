@@ -28,6 +28,12 @@ class SendGridProvider:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
+    async def __aenter__(self) -> SendGridProvider:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        self.close()
+
     def send(self, message: EmailMessage) -> DeliveryResult:
         """Send an email via SendGrid."""
         mail = Mail(

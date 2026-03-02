@@ -62,6 +62,12 @@ class TwilioProvider:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
+    async def __aenter__(self) -> TwilioProvider:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        self.close()
+
     # ── Public API ────────────────────────────────────────────────
 
     def send(self, message: Message) -> DeliveryResult:

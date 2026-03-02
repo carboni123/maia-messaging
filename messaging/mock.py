@@ -66,6 +66,12 @@ class MockProvider:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
+    async def __aenter__(self) -> MockProvider:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        self.close()
+
     def send(self, message: Message) -> DeliveryResult:
         if self.fixed_result is not None:
             result = self.fixed_result

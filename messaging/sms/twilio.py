@@ -38,6 +38,12 @@ class TwilioSMSProvider:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
+    async def __aenter__(self) -> TwilioSMSProvider:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        self.close()
+
     def send(self, message: SMSMessage) -> DeliveryResult:
         """Send an SMS synchronously."""
         body = message.body.strip()
