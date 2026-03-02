@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["EmailProvider"]
+
 from typing import Protocol
 
 from messaging.types import DeliveryResult, EmailMessage

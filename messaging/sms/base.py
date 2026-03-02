@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["SMSProvider"]
+
 from typing import Protocol
 
 from messaging.types import DeliveryResult, SMSMessage
