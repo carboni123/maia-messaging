@@ -102,8 +102,8 @@ class TwilioProvider:
         except TwilioRestException as exc:
             logger.error("Failed to fetch message status for %s: %s", external_id, exc)
             return DeliveryResult.fail(str(exc.msg), error_code=str(exc.code) if exc.code else None)
-        except Exception as exc:
-            logger.error("Failed to fetch message status for %s: %s", external_id, exc)
+        except Exception:
+            logger.exception("Failed to fetch message status for %s", external_id)
             return None
 
     # ── Private dispatch ──────────────────────────────────────────
@@ -173,5 +173,5 @@ class TwilioProvider:
             logger.error("Twilio API error: code=%s msg=%s", exc.code, exc.msg)
             return DeliveryResult.fail(str(exc.msg), error_code=str(exc.code) if exc.code else None)
         except Exception as exc:
-            logger.error("Twilio send failed: %s", exc)
+            logger.exception("Twilio send failed")
             return DeliveryResult.fail(str(exc))

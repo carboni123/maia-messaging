@@ -81,8 +81,8 @@ class TwilioSMSProvider:
         except TwilioRestException as exc:
             logger.error("Failed to fetch SMS status for %s: %s", external_id, exc)
             return DeliveryResult.fail(str(exc.msg), error_code=str(exc.code) if exc.code else None)
-        except Exception as exc:
-            logger.error("Failed to fetch SMS status for %s: %s", external_id, exc)
+        except Exception:
+            logger.exception("Failed to fetch SMS status for %s", external_id)
             return None
 
     def _create_message(self, params: dict[str, Any]) -> DeliveryResult:
@@ -99,5 +99,5 @@ class TwilioSMSProvider:
             logger.error("Twilio SMS API error: code=%s msg=%s", exc.code, exc.msg)
             return DeliveryResult.fail(str(exc.msg), error_code=str(exc.code) if exc.code else None)
         except Exception as exc:
-            logger.error("Twilio SMS send failed: %s", exc)
+            logger.exception("Twilio SMS send failed")
             return DeliveryResult.fail(str(exc))
