@@ -23,10 +23,8 @@ class DeliveryStatus(str, Enum):
 
         Higher values indicate more advanced delivery states.
         Negative values indicate terminal failure states.
-
-        Matches the ``STATUS_PRECEDENCE`` map used in the app's
-        ``CommunicationLog`` model so the library can be the source
-        of truth for delivery status ordering.
+        Consuming apps can use this as the source of truth for
+        delivery status ordering.
         """
         return _STATUS_PRECEDENCE[self]
 
