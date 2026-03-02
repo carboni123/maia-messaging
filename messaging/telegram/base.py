@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Protocol, Union
+from typing import Protocol
 
 from messaging.types import DeliveryResult, TelegramMedia, TelegramText
 
 # Defined here (not in types.py) because Telegram messages use chat_id (int | str)
 # rather than phone-based `to` fields, making them a separate message family.
-TelegramMessage = Union[TelegramText, TelegramMedia]
+TelegramMessage = TelegramText | TelegramMedia
 
 
 class TelegramProvider(Protocol):

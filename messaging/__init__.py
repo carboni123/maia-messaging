@@ -1,5 +1,4 @@
-"""
-maia-messaging — Multi-channel messaging delivery library.
+"""maia-messaging — Multi-channel messaging delivery library.
 
 Standalone messaging gateway extracted from the Meu Assistente IA backend.
 Owns everything from "I have a resolved message and provider config" to
@@ -125,6 +124,8 @@ What this library does NOT own (stays in the consuming app):
 - WhatsApp session lifecycle (QR code, connection status)
 - Status webhook processing (DB updates, event bus)
 """
+
+from __future__ import annotations
 
 from .content_api import TwilioContentAPI, TwilioContentAPIError, TwilioTemplateResponse
 from .email import EmailProvider, SendGridProvider, Smtp2GoProvider

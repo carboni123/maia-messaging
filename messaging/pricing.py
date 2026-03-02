@@ -4,6 +4,8 @@ Calculates per-message costs for WhatsApp template messages based on category.
 Pricing is based on Meta's Business API rates for Brazil (default market).
 """
 
+from __future__ import annotations
+
 from decimal import Decimal
 
 # WhatsApp template pricing by category (USD per message)

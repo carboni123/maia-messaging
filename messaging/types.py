@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Union
+from typing import Any
 
 
 class DeliveryStatus(str, Enum):
@@ -146,7 +146,7 @@ class MetaWhatsAppTemplate:
     components: list[dict[str, Any]] = field(default_factory=list)
 
 
-Message = Union[WhatsAppText, WhatsAppMedia, WhatsAppTemplate, MetaWhatsAppTemplate]
+Message = WhatsAppText | WhatsAppMedia | WhatsAppTemplate | MetaWhatsAppTemplate
 
 
 # ── Email message types ──────────────────────────────────────────────
