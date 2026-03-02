@@ -1,5 +1,7 @@
 """Tests for the MockProvider."""
 
+from unittest.mock import MagicMock
+
 from messaging import DeliveryResult, MockProvider, WhatsAppText
 
 
@@ -56,3 +58,34 @@ class TestMockProvider:
 
         provider.reset()
         assert len(provider.sent) == 0
+
+
+class TestMockProviderContextManager:
+    def test_context_manager_calls_close(self):
+        provider = MockProvider()
+        provider.close = MagicMock()
+        with provider:
+            pass
+        provider.close.assert_called_once()
+
+    async def test_async_context_manager_calls_close(self):
+        provider = MockProvider()
+        provider.close = MagicMock()
+        async with provider:
+            pass
+        provider.close.assert_called_once()
+
+
+class TestMockProviderSendAsync:
+    async def test_send_async_returns_result(self):
+        provider = MockProvider()
+        result = await provider.send_async(WhatsAppText(to="+5511999999999", body="Hi"))
+        assert result.succeeded
+        assert len(provider.sent) == 1
+
+    async def test_send_async_respects_fixed_result(self):
+        failure = DeliveryResult.fail("async failure")
+        provider = MockProvider(fixed_result=failure)
+        result = await provider.send_async(WhatsAppText(to="+5511999999999", body="Hi"))
+        assert not result.succeeded
+        assert result.error_message == "async failure"

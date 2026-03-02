@@ -111,6 +111,13 @@ class TestSendGridContextManager:
             pass
         provider.close.assert_called_once()
 
+    async def test_async_context_manager_calls_close(self):
+        provider = _make_provider()
+        provider.close = MagicMock()
+        async with provider:
+            pass
+        provider.close.assert_called_once()
+
 
 class TestSendGridSendAsync:
     async def test_send_async_returns_result(self):
