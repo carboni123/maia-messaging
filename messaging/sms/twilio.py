@@ -10,7 +10,7 @@ from twilio.base.exceptions import TwilioRestException  # type: ignore[import-un
 from twilio.http.http_client import TwilioHttpClient  # type: ignore[import-untyped]
 from twilio.rest import Client  # type: ignore[import-untyped]
 
-from messaging.providers.twilio import _map_twilio_status
+from messaging.twilio_utils import map_twilio_status
 from messaging.types import DeliveryResult, SMSMessage, TwilioSMSConfig
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class TwilioSMSProvider:
         """Poll Twilio for current SMS delivery status."""
         try:
             msg = self._client.messages(external_id).fetch()
-            status = _map_twilio_status(getattr(msg, "status", None))
+            status = map_twilio_status(getattr(msg, "status", None))
             return DeliveryResult(
                 status=status,
                 external_id=msg.sid,
@@ -73,7 +73,7 @@ class TwilioSMSProvider:
     def _create_message(self, params: dict[str, Any]) -> DeliveryResult:
         try:
             msg = self._client.messages.create(**params)
-            status = _map_twilio_status(getattr(msg, "status", None))
+            status = map_twilio_status(getattr(msg, "status", None))
             return DeliveryResult(
                 status=status,
                 external_id=getattr(msg, "sid", None),
