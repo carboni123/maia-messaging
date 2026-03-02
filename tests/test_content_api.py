@@ -10,7 +10,7 @@ from messaging.content_api import (
     TwilioContentAPI,
     TwilioContentAPIError,
     TwilioTemplateResponse,
-    format_types_for_content_api,
+    _format_types_for_content_api,
 )
 
 
@@ -21,25 +21,25 @@ def _make_api(config: TwilioConfig) -> TwilioContentAPI:
         return TwilioContentAPI(config)
 
 
-# ── format_types_for_content_api ─────────────────────────────────────
+# ── _format_types_for_content_api ─────────────────────────────────────
 
 
 class TestFormatTypes:
     def test_renames_underscore_keys(self):
-        result = format_types_for_content_api({"twilio_text": {"body": "hi"}})
+        result = _format_types_for_content_api({"twilio_text": {"body": "hi"}})
         assert "twilio/text" in result
         assert "twilio_text" not in result
 
     def test_preserves_slash_keys(self):
-        result = format_types_for_content_api({"twilio/text": {"body": "hi"}})
+        result = _format_types_for_content_api({"twilio/text": {"body": "hi"}})
         assert "twilio/text" in result
 
     def test_renames_quick_reply(self):
-        result = format_types_for_content_api({"twilio_quick_reply": {"body": "hi"}})
+        result = _format_types_for_content_api({"twilio_quick_reply": {"body": "hi"}})
         assert "twilio/quick-reply" in result
 
     def test_renames_whatsapp_types(self):
-        result = format_types_for_content_api({"whatsapp_card": {}})
+        result = _format_types_for_content_api({"whatsapp_card": {}})
         assert "whatsapp/card" in result
 
 

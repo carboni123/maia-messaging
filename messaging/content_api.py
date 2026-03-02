@@ -126,7 +126,7 @@ _TYPE_RENAME_MAP: dict[str, str] = {
 _WHATSAPP_UNSUPPORTED_TYPES: set[str] = {"twilio/list-picker"}
 
 
-def format_types_for_content_api(types: dict[str, Any]) -> dict[str, Any]:
+def _format_types_for_content_api(types: dict[str, Any]) -> dict[str, Any]:
     """Normalize internal payload keys to Twilio's slash-delimited names.
 
     Example: ``"twilio_text"`` → ``"twilio/text"``.
@@ -214,7 +214,7 @@ class TwilioContentAPI:
         Raises:
             TwilioContentAPIError: On API failure or unsupported types.
         """
-        formatted_types = format_types_for_content_api(types)
+        formatted_types = _format_types_for_content_api(types)
         payload: dict[str, Any] = {
             "friendly_name": friendly_name,
             "language": language,
@@ -394,7 +394,7 @@ class TwilioContentAPI:
         payload: dict[str, Any] = {
             "friendly_name": friendly_name,
             "language": "en",
-            "types": format_types_for_content_api(types_payload),
+            "types": _format_types_for_content_api(types_payload),
         }
 
         try:

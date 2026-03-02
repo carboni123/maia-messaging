@@ -138,7 +138,7 @@ from .providers.meta import MetaWhatsAppProvider
 from .providers.twilio import TwilioProvider, empty_messaging_response_xml
 from .providers.whatsapp_personal import WhatsAppPersonalProvider
 from .sms import SMSProvider, TwilioSMSProvider
-from .telegram import TelegramBotProvider, TelegramProvider
+from .telegram import TelegramBotProvider, TelegramMessage, TelegramProvider
 from .types import (
     DeliveryResult,
     DeliveryStatus,
@@ -205,6 +205,7 @@ __all__ = [
     "TelegramProvider",
     "TelegramBotProvider",
     # Types — Telegram
+    "TelegramMessage",
     "TelegramText",
     "TelegramMedia",
     "TelegramConfig",
