@@ -235,6 +235,22 @@ class TestTwilioFetchStatus:
         assert not result.succeeded
 
 
+class TestTwilioContextManager:
+    def test_context_manager_calls_close(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        provider.close = MagicMock()
+        with provider:
+            pass
+        provider.close.assert_called_once()
+
+    async def test_async_context_manager_calls_close(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        provider.close = MagicMock()
+        async with provider:
+            pass
+        provider.close.assert_called_once()
+
+
 class TestTwilioSendAsync:
     def test_send_async_delegates_to_sync(self, twilio_config: TwilioConfig):
         import asyncio

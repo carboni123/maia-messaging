@@ -140,6 +140,22 @@ class TestTwilioSMSFetchStatus:
         assert result is None
 
 
+class TestTwilioSMSContextManager:
+    def test_context_manager_calls_close(self, twilio_sms_config: TwilioSMSConfig):
+        provider = _make_provider(twilio_sms_config)
+        provider.close = MagicMock()
+        with provider:
+            pass
+        provider.close.assert_called_once()
+
+    async def test_async_context_manager_calls_close(self, twilio_sms_config: TwilioSMSConfig):
+        provider = _make_provider(twilio_sms_config)
+        provider.close = MagicMock()
+        async with provider:
+            pass
+        provider.close.assert_called_once()
+
+
 class TestTwilioSMSAsync:
     def test_send_async(self, twilio_sms_config: TwilioSMSConfig):
         provider = _make_provider(twilio_sms_config)
