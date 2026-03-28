@@ -213,3 +213,17 @@ class TestGatewaySendAsync:
         assert result.external_id == "SM_async_fallback"
         assert result.used_fallback_number == "whatsapp:+555198644323"
         assert call_count == 2
+
+
+class TestBsuidNoFallback:
+    def test_no_phone_fallback_for_bsuid_recipient(self):
+        """BSUIDs should never trigger phone fallback — they are not phone numbers."""
+        provider = MockProvider(fixed_result=DeliveryResult.fail("not a valid whatsapp"))
+        gateway = MessagingGateway(provider)
+        msg = WhatsAppText(to="whatsapp:BR.1A2B3C4D5E6F", body="Hello")
+        result = gateway.send(msg, phone_fallback=True)
+
+        assert not result.succeeded
+        # Only one attempt — no fallback for BSUIDs
+        assert len(provider.sent) == 1
+        assert result.used_fallback_number is None

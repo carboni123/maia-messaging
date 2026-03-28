@@ -134,6 +134,7 @@ from .mock import MockProvider, SentMessage
 from .phone import (
     denormalize_phone_for_whatsapp,
     format_whatsapp_number,
+    is_bsuid,
     normalize_phone,
     normalize_whatsapp_id,
     phones_match,
@@ -265,6 +266,7 @@ __all__ = [
     # Phone
     "denormalize_phone_for_whatsapp",
     "format_whatsapp_number",
+    "is_bsuid",
     "normalize_phone",
     "normalize_whatsapp_id",
     "phones_match",

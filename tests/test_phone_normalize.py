@@ -3,6 +3,7 @@
 from messaging.phone import (
     denormalize_phone_for_whatsapp,
     format_whatsapp_number,
+    is_bsuid,
     normalize_phone,
     normalize_whatsapp_id,
     phones_match,
@@ -146,3 +147,63 @@ class TestPhonesMatch:
     def test_none_input(self):
         assert not phones_match(None, "+5511999999999")
         assert not phones_match("+5511999999999", None)
+
+
+class TestIsBsuid:
+    def test_bsuid_plain(self):
+        assert is_bsuid("BR.1A2B3C4D5E6F7G8H9I0J") is True
+
+    def test_bsuid_with_whatsapp_prefix(self):
+        assert is_bsuid("whatsapp:BR.1A2B3C4D5E6F") is True
+
+    def test_bsuid_case_insensitive_prefix(self):
+        assert is_bsuid("WhatsApp:US.ABC123") is True
+
+    def test_phone_number_e164(self):
+        assert is_bsuid("+5511999999999") is False
+
+    def test_phone_with_whatsapp_prefix(self):
+        assert is_bsuid("whatsapp:+5511999999999") is False
+
+    def test_plain_digits(self):
+        assert is_bsuid("5511999999999") is False
+
+    def test_none(self):
+        assert is_bsuid(None) is False
+
+    def test_empty(self):
+        assert is_bsuid("") is False
+
+
+class TestBsuidPassthrough:
+    """All phone functions pass BSUIDs through unchanged."""
+
+    def test_normalize_phone_bsuid(self):
+        assert normalize_phone("BR.1A2B3C4D5E") == "BR.1A2B3C4D5E"
+
+    def test_normalize_phone_bsuid_with_whatsapp(self):
+        assert normalize_phone("whatsapp:BR.1A2B3C4D5E") == "whatsapp:BR.1A2B3C4D5E"
+
+    def test_normalize_whatsapp_id_bsuid(self):
+        assert normalize_whatsapp_id("whatsapp:US.XYZ789") == "whatsapp:US.XYZ789"
+
+    def test_normalize_whatsapp_id_bsuid_no_prefix(self):
+        assert normalize_whatsapp_id("US.XYZ789") == "US.XYZ789"
+
+    def test_format_whatsapp_number_bsuid(self):
+        assert format_whatsapp_number("BR.1A2B3C4D5E") == "whatsapp:BR.1A2B3C4D5E"
+
+    def test_format_whatsapp_number_bsuid_with_prefix(self):
+        assert format_whatsapp_number("whatsapp:BR.1A2B3C4D5E") == "whatsapp:BR.1A2B3C4D5E"
+
+    def test_denormalize_bsuid(self):
+        assert denormalize_phone_for_whatsapp("BR.1A2B3C4D5E") == "BR.1A2B3C4D5E"
+
+    def test_denormalize_bsuid_with_prefix(self):
+        assert denormalize_phone_for_whatsapp("whatsapp:BR.1A2B3C") == "whatsapp:BR.1A2B3C"
+
+    def test_phones_match_bsuid(self):
+        assert phones_match("BR.1A2B3C", "BR.1A2B3C") is True
+
+    def test_phones_match_bsuid_vs_phone(self):
+        assert phones_match("BR.1A2B3C", "+5511999999999") is False

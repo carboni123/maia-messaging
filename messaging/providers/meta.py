@@ -49,15 +49,19 @@ _MIME_TO_META_TYPE: dict[str, str] = {
 }
 
 
-def _normalize_phone(to: str) -> str:
-    """Strip 'whatsapp:' prefix and '+' to get a plain phone number for Meta API.
+_BSUID_PATTERN = re.compile(r"^[A-Za-z]{2}\.[A-Za-z0-9]+$")
 
-    This intentionally does NOT delegate to ``phone/normalize.py``, which returns
-    +E.164 format.  The Meta Cloud API requires bare digits without the leading
-    ``+``, so this helper applies its own simpler transformation.
+
+def _normalize_recipient(to: str) -> str:
+    """Normalize a recipient identifier for the Meta API.
+
+    For phone numbers: strips ``whatsapp:`` prefix and leading ``+``.
+    For BSUIDs: strips ``whatsapp:`` prefix only (preserves the ``CC.xxx`` format).
     """
-    phone = re.sub(r"^whatsapp:", "", to, flags=re.IGNORECASE)
-    return phone.lstrip("+")
+    stripped = re.sub(r"^whatsapp:", "", to, flags=re.IGNORECASE)
+    if _BSUID_PATTERN.match(stripped):
+        return stripped
+    return stripped.lstrip("+")
 
 
 def _media_type_from_mime(mime: str) -> str:
@@ -151,7 +155,7 @@ class MetaWhatsAppProvider:
             body = body[:MAX_BODY_CHARS]
 
         msg = MetaTextMessage(
-            to=_normalize_phone(message.to),
+            to=_normalize_recipient(message.to),
             text=MetaTextBody(body=body),
         )
         return self._post(msg.model_dump())
@@ -160,7 +164,7 @@ class MetaWhatsAppProvider:
         if not message.media_urls:
             return DeliveryResult.fail("No media URLs provided")
 
-        to = _normalize_phone(message.to)
+        to = _normalize_recipient(message.to)
         last_result: DeliveryResult | None = None
 
         for idx, media_url in enumerate(message.media_urls):
@@ -195,7 +199,7 @@ class MetaWhatsAppProvider:
             components=components,
         )
         msg = MetaTemplateMessage(
-            to=_normalize_phone(message.to),
+            to=_normalize_recipient(message.to),
             template=template_payload,
         )
         return self._post(msg.model_dump(exclude_none=True))

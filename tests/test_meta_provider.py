@@ -12,7 +12,7 @@ from messaging import (
     WhatsAppTemplate,
     WhatsAppText,
 )
-from messaging.providers.meta import MetaWhatsAppProvider, _normalize_phone
+from messaging.providers.meta import MetaWhatsAppProvider, _normalize_recipient
 
 
 def _make_provider(
@@ -66,18 +66,24 @@ class TestMetaWhatsAppProviderInit:
         assert provider._url.endswith("/messages")
 
 
-class TestNormalizePhone:
+class TestNormalizeRecipient:
     def test_strips_whatsapp_prefix_and_plus(self):
-        assert _normalize_phone("whatsapp:+5511999999999") == "5511999999999"
+        assert _normalize_recipient("whatsapp:+5511999999999") == "5511999999999"
 
     def test_strips_plus_only(self):
-        assert _normalize_phone("+5511999999999") == "5511999999999"
+        assert _normalize_recipient("+5511999999999") == "5511999999999"
 
     def test_plain_number_unchanged(self):
-        assert _normalize_phone("5511999999999") == "5511999999999"
+        assert _normalize_recipient("5511999999999") == "5511999999999"
 
     def test_case_insensitive_prefix(self):
-        assert _normalize_phone("WhatsApp:+14155238886") == "14155238886"
+        assert _normalize_recipient("WhatsApp:+14155238886") == "14155238886"
+
+    def test_bsuid_passed_through(self):
+        assert _normalize_recipient("BR.1A2B3C4D5E6F") == "BR.1A2B3C4D5E6F"
+
+    def test_bsuid_with_whatsapp_prefix(self):
+        assert _normalize_recipient("whatsapp:BR.1A2B3C4D5E6F") == "BR.1A2B3C4D5E6F"
 
 
 class TestSendText:
@@ -406,3 +412,24 @@ class TestResponseValidation:
 
         assert not result.succeeded
         assert "Invalid Meta API response" in result.error_message
+
+
+class TestBsuidSupport:
+    def test_send_text_with_bsuid(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        """BSUIDs are passed through to the Meta API unchanged."""
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
+
+        result = provider.send(WhatsAppText(to="BR.1A2B3C4D5E6F", body="Hello"))
+
+        assert result.succeeded
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["to"] == "BR.1A2B3C4D5E6F"
+
+    def test_send_text_with_whatsapp_prefixed_bsuid(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
+
+        result = provider.send(WhatsAppText(to="whatsapp:BR.1A2B3C4D5E6F", body="Hello"))
+
+        assert result.succeeded
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["to"] == "BR.1A2B3C4D5E6F"

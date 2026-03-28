@@ -11,6 +11,22 @@ import re
 
 from .brazil import denormalize_brazil_phone, normalize_brazil_phone, phones_match_brazil
 
+_BSUID_PATTERN = re.compile(r"^[A-Za-z]{2}\.[A-Za-z0-9]+$")
+
+
+def is_bsuid(value: str | None) -> bool:
+    """Check if a value is a WhatsApp Business-Scoped User ID (BSUID).
+
+    BSUIDs have the format ``CC.alphanumeric`` (2-letter country code + dot
+    + up to 128 alphanumeric chars), optionally prefixed with ``whatsapp:``.
+    """
+    if not value:
+        return False
+    stripped = value.strip()
+    if stripped.lower().startswith("whatsapp:"):
+        stripped = stripped[9:]
+    return bool(_BSUID_PATTERN.match(stripped))
+
 
 def normalize_phone(phone: str | None, default_country: str = "BR") -> str | None:
     """Normalize a phone number to E.164 format.
@@ -31,6 +47,9 @@ def normalize_phone(phone: str | None, default_country: str = "BR") -> str | Non
     phone = phone.strip()
     if not phone:
         return None
+
+    if is_bsuid(phone):
+        return phone
 
     whatsapp_prefix, candidate = _split_whatsapp_prefix(phone)
     candidate = candidate.strip()
@@ -72,6 +91,9 @@ def normalize_whatsapp_id(whatsapp_id: str | None, default_country: str = "BR") 
     if not whatsapp_id:
         return None
 
+    if is_bsuid(whatsapp_id):
+        return whatsapp_id
+
     has_whatsapp_prefix = whatsapp_id.lower().startswith("whatsapp:")
     raw_phone = whatsapp_id[9:] if has_whatsapp_prefix else whatsapp_id
 
@@ -90,9 +112,13 @@ def denormalize_phone_for_whatsapp(phone: str | None, country: str = "BR") -> st
 
     Used when the normalized format fails - try the alternate format.
     For Brazil, this converts 9-digit mobile back to 8-digit.
+    BSUIDs are returned unchanged.
     """
     if not phone:
         return None
+
+    if is_bsuid(phone):
+        return phone
 
     if country == "BR":
         return denormalize_brazil_phone(phone)
@@ -114,7 +140,12 @@ def format_whatsapp_number(number: str | None) -> str | None:
 
     number = number.strip()
     if number.lower().startswith("whatsapp:"):
-        number = number[9:]
+        inner = number[9:]
+        if is_bsuid(inner):
+            return f"whatsapp:{inner}"
+        number = inner
+    elif is_bsuid(number):
+        return f"whatsapp:{number}"
 
     digits = re.sub(r"\D", "", number)
     if not digits:
@@ -130,7 +161,11 @@ def phones_match(phone1: str | None, phone2: str | None, country: str = "BR") ->
     """Check if two phone numbers match after normalization.
 
     Handles country-specific normalization rules before comparison.
+    BSUIDs are compared as exact strings.
     """
+    if is_bsuid(phone1) or is_bsuid(phone2):
+        return phone1 == phone2
+
     if country == "BR":
         return phones_match_brazil(phone1, phone2)
 
