@@ -208,3 +208,15 @@ class TestTelegramBotSendAsync:
         result = await provider.send_async(TelegramText(chat_id=12345, body="Hello async"))
         assert result.succeeded
         assert result.external_id == "77"
+
+
+class TestResponseValidation:
+    def test_malformed_success_response_fails_gracefully(self, telegram_config: TelegramConfig):
+        """If Telegram returns an unexpected response shape, the provider fails gracefully."""
+        provider, mock_client = _make_provider(telegram_config, MagicMock())
+        mock_client.post.return_value.json.return_value = {"ok": True}
+
+        result = provider.send(TelegramText(chat_id=12345, body="Hello"))
+
+        assert not result.succeeded
+        assert "Invalid Telegram API response" in result.error_message

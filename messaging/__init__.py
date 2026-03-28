@@ -160,7 +160,16 @@ from .providers.meta_schemas import (
 from .providers.twilio import TwilioProvider, empty_messaging_response_xml
 from .providers.whatsapp_personal import WhatsAppPersonalProvider
 from .sms import SMSProvider, TwilioSMSProvider
-from .telegram import TelegramBotProvider, TelegramMessage, TelegramProvider
+from .telegram import (
+    TelegramBotProvider,
+    TelegramErrorResponse,
+    TelegramMediaPayload,
+    TelegramMessage,
+    TelegramProvider,
+    TelegramResultMessage,
+    TelegramSuccessResponse,
+    TelegramTextPayload,
+)
 from .types import (
     DeliveryResult,
     DeliveryStatus,
@@ -232,6 +241,12 @@ __all__ = [
     "TelegramText",
     "TelegramMedia",
     "TelegramConfig",
+    # Types — Telegram Bot API schemas
+    "TelegramErrorResponse",
+    "TelegramMediaPayload",
+    "TelegramResultMessage",
+    "TelegramSuccessResponse",
+    "TelegramTextPayload",
     # Types — Meta WhatsApp API schemas
     "MetaErrorDetail",
     "MetaErrorResponse",

@@ -8,6 +8,7 @@ import threading
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
 from messaging.types import (
     DeliveryResult,
@@ -18,6 +19,12 @@ from messaging.types import (
 )
 
 from .base import TelegramMessage
+from .schemas import (
+    TelegramErrorResponse,
+    TelegramMediaPayload,
+    TelegramSuccessResponse,
+    TelegramTextPayload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +83,12 @@ class TelegramBotProvider:
 
     def _send_text(self, message: TelegramText) -> DeliveryResult:
         """Send a text message via sendMessage."""
-        payload: dict[str, Any] = {
-            "chat_id": message.chat_id,
-            "text": message.body,
-        }
-        if message.parse_mode:
-            payload["parse_mode"] = message.parse_mode
-        return self._post("sendMessage", payload)
+        msg = TelegramTextPayload(
+            chat_id=message.chat_id,
+            text=message.body,
+            parse_mode=message.parse_mode,
+        )
+        return self._post("sendMessage", msg.model_dump(exclude_none=True))
 
     def _send_media(self, message: TelegramMedia) -> DeliveryResult:
         """Send a media message via sendPhoto/sendDocument/sendVideo."""
@@ -93,16 +99,15 @@ class TelegramBotProvider:
                 error_code="unsupported_media_type",
             )
 
-        media_field = message.media_type  # "photo", "document", "video"
-        payload: dict[str, Any] = {
-            "chat_id": message.chat_id,
-            media_field: message.media_url,
-        }
-        if message.caption:
-            payload["caption"] = message.caption
-        if message.parse_mode:
-            payload["parse_mode"] = message.parse_mode
-        return self._post(endpoint, payload)
+        msg = TelegramMediaPayload.model_validate(
+            {
+                "chat_id": message.chat_id,
+                message.media_type: message.media_url,
+                "caption": message.caption,
+                "parse_mode": message.parse_mode,
+            }
+        )
+        return self._post(endpoint, msg.model_dump(exclude_none=True))
 
     def _post(self, method: str, payload: dict[str, Any]) -> DeliveryResult:
         """Make a POST request to the Telegram Bot API."""
@@ -112,16 +117,19 @@ class TelegramBotProvider:
             data = response.json()
 
             if data.get("ok"):
-                message_id = data.get("result", {}).get("message_id")
-                external_id = str(message_id) if message_id is not None else None
+                success_resp = TelegramSuccessResponse.model_validate(data)
+                external_id = str(success_resp.result.message_id)
                 logger.info("Telegram message sent via %s, message_id=%s", method, external_id)
                 return DeliveryResult.ok(status=DeliveryStatus.SENT, external_id=external_id)
 
-            error_code = str(data.get("error_code", ""))
-            description = data.get("description", "Unknown Telegram API error")
-            logger.error("Telegram API error: [%s] %s", error_code, description)
-            return DeliveryResult.fail(description, error_code=error_code)
+            error_resp = TelegramErrorResponse.model_validate(data)
+            error_code = str(error_resp.error_code)
+            logger.error("Telegram API error: [%s] %s", error_code, error_resp.description)
+            return DeliveryResult.fail(error_resp.description, error_code=error_code)
 
+        except ValidationError as exc:
+            logger.exception("Failed to validate Telegram API response")
+            return DeliveryResult.fail(f"Invalid Telegram API response: {exc}")
         except Exception as exc:
             logger.exception("Unexpected error calling Telegram Bot API")
             return DeliveryResult.fail(str(exc))
