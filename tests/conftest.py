@@ -2,7 +2,16 @@
 
 import pytest
 
-from messaging import MetaWhatsAppConfig, MockProvider, SendGridConfig, Smtp2GoConfig, TelegramConfig, TwilioConfig, TwilioSMSConfig, WhatsAppPersonalConfig
+from messaging import (
+    MetaWhatsAppConfig,
+    MockProvider,
+    SendGridConfig,
+    Smtp2GoConfig,
+    TelegramConfig,
+    TwilioConfig,
+    TwilioSMSConfig,
+    WhatsAppPersonalConfig,
+)
 
 
 @pytest.fixture

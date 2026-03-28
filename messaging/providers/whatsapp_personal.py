@@ -90,9 +90,11 @@ class WhatsAppPersonalProvider:
 
     async def send_async(self, message: Message) -> DeliveryResult:
         """Send a message asynchronously (thread-safe via lock)."""
+
         def _send() -> DeliveryResult:
             with self._lock:
                 return self.send(message)
+
         return await asyncio.to_thread(_send)
 
     def fetch_status(self, external_id: str) -> DeliveryResult | None:

@@ -8,7 +8,9 @@ from messaging import DeliveryStatus, TelegramConfig, TelegramMedia, TelegramTex
 from messaging.telegram.bot_api import TelegramBotProvider
 
 
-def _make_provider(config: TelegramConfig, mock_response: MagicMock | None = None) -> tuple[TelegramBotProvider, MagicMock]:
+def _make_provider(
+    config: TelegramConfig, mock_response: MagicMock | None = None
+) -> tuple[TelegramBotProvider, MagicMock]:
     """Create a provider with a mocked httpx client."""
     provider = TelegramBotProvider(config)
     mock_client = MagicMock()

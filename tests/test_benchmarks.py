@@ -55,6 +55,7 @@ def _httpx_ok_whatsapp() -> MagicMock:
     resp = MagicMock()
     resp.json.return_value = {
         "messaging_product": "whatsapp",
+        "contacts": [{"input": "5511999999999", "wa_id": "5511999999999"}],
         "messages": [{"id": "wamid.bench"}],
     }
     return resp
@@ -86,8 +87,7 @@ def _sendgrid_ok_response() -> MagicMock:
 class TestTwilioProviderBenchmarks:
     @pytest.fixture(autouse=True)
     def _setup(self):
-        with patch("messaging.providers.twilio.Client"), \
-             patch("messaging.providers.twilio.TwilioHttpClient"):
+        with patch("messaging.providers.twilio.Client"), patch("messaging.providers.twilio.TwilioHttpClient"):
             from messaging.providers.twilio import TwilioProvider
 
             self.provider = TwilioProvider(
@@ -135,8 +135,7 @@ class TestTwilioProviderBenchmarks:
 class TestTwilioAsyncBenchmarks:
     @pytest.fixture(autouse=True)
     def _setup(self):
-        with patch("messaging.providers.twilio.Client"), \
-             patch("messaging.providers.twilio.TwilioHttpClient"):
+        with patch("messaging.providers.twilio.Client"), patch("messaging.providers.twilio.TwilioHttpClient"):
             from messaging.providers.twilio import TwilioProvider
 
             self.provider = TwilioProvider(
@@ -167,9 +166,7 @@ class TestMetaProviderBenchmarks:
     def _setup(self):
         from messaging.providers.meta import MetaWhatsAppProvider
 
-        self.provider = MetaWhatsAppProvider(
-            MetaWhatsAppConfig(phone_number_id="123456", access_token="EAA_bench")
-        )
+        self.provider = MetaWhatsAppProvider(MetaWhatsAppConfig(phone_number_id="123456", access_token="EAA_bench"))
         mock_client = MagicMock()
         mock_client.post = MagicMock(return_value=_httpx_ok_whatsapp())
         self.provider._client = mock_client
@@ -237,9 +234,7 @@ class TestWhatsAppPersonalBenchmarks:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.headers = {"Content-Type": "application/json"}
-        mock_resp.json.return_value = {
-            "payload": {"MessageSid": "SM_bench_personal"}
-        }
+        mock_resp.json.return_value = {"payload": {"MessageSid": "SM_bench_personal"}}
         mock_client.post = MagicMock(return_value=mock_resp)
         self.provider._client = mock_client
         yield
@@ -268,9 +263,7 @@ class TestTelegramBenchmarks:
     def _setup(self):
         from messaging.telegram.bot_api import TelegramBotProvider
 
-        self.provider = TelegramBotProvider(
-            TelegramConfig(bot_token="123:ABCbench")
-        )
+        self.provider = TelegramBotProvider(TelegramConfig(bot_token="123:ABCbench"))
         mock_client = MagicMock()
         mock_client.post = MagicMock(return_value=_httpx_ok_telegram())
         self.provider._client = mock_client
@@ -312,8 +305,7 @@ class TestTelegramBenchmarks:
 class TestTwilioSMSBenchmarks:
     @pytest.fixture(autouse=True)
     def _setup(self):
-        with patch("messaging.sms.twilio.Client"), \
-             patch("messaging.sms.twilio.TwilioHttpClient"):
+        with patch("messaging.sms.twilio.Client"), patch("messaging.sms.twilio.TwilioHttpClient"):
             from messaging.sms.twilio import TwilioSMSProvider
 
             self.provider = TwilioSMSProvider(
@@ -323,9 +315,7 @@ class TestTwilioSMSBenchmarks:
                     from_number="+14155238886",
                 )
             )
-            self.provider._client.messages.create.return_value = _twilio_mock_message(
-                sid="SM_sms_bench"
-            )
+            self.provider._client.messages.create.return_value = _twilio_mock_message(sid="SM_sms_bench")
             yield
 
     def test_send_sms(self, benchmark):
@@ -404,10 +394,7 @@ class TestMockProviderBenchmarks:
     def test_send_1000_messages(self, benchmark):
         """Benchmark MockProvider accumulation overhead."""
         provider = MockProvider()
-        msgs = [
-            WhatsAppText(to=f"+551199999{i:04d}", body=f"Msg {i}")
-            for i in range(1000)
-        ]
+        msgs = [WhatsAppText(to=f"+551199999{i:04d}", body=f"Msg {i}") for i in range(1000)]
 
         def send_batch():
             for m in msgs:
@@ -476,9 +463,7 @@ class TestDeliveryResultBenchmarks:
         assert result.succeeded
 
     def test_fail_construction(self, benchmark):
-        result = benchmark(
-            DeliveryResult.fail, "Something went wrong", error_code="500"
-        )
+        result = benchmark(DeliveryResult.fail, "Something went wrong", error_code="500")
         assert not result.succeeded
 
     def test_status_precedence(self, benchmark):

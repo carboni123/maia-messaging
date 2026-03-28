@@ -8,8 +8,7 @@ from messaging.providers.twilio import TwilioProvider, empty_messaging_response_
 
 def _make_provider(config: TwilioConfig) -> TwilioProvider:
     """Create a TwilioProvider with a mocked Client."""
-    with patch("messaging.providers.twilio.Client"), \
-         patch("messaging.providers.twilio.TwilioHttpClient"):
+    with patch("messaging.providers.twilio.Client"), patch("messaging.providers.twilio.TwilioHttpClient"):
         return TwilioProvider(config)
 
 
@@ -153,9 +152,7 @@ class TestTwilioErrorHandling:
 
         provider = _make_provider(twilio_config)
         provider._client.messages.create = MagicMock(
-            side_effect=TwilioRestException(
-                400, "https://api.twilio.com", msg="Invalid 'To' Phone Number", code=21211
-            )
+            side_effect=TwilioRestException(400, "https://api.twilio.com", msg="Invalid 'To' Phone Number", code=21211)
         )
 
         result = provider.send(WhatsAppText(to="whatsapp:+invalid", body="Hi"))
@@ -273,9 +270,7 @@ class TestTwilioSendAsync:
         mock_msg = MagicMock(sid="SM_ASYNC", status="sent", error_code=None, error_message=None)
         provider._client.messages.create = MagicMock(return_value=mock_msg)
 
-        result = asyncio.run(
-            provider.send_async(WhatsAppText(to="whatsapp:+5511999999999", body="Hi"))
-        )
+        result = asyncio.run(provider.send_async(WhatsAppText(to="whatsapp:+5511999999999", body="Hi")))
 
         assert result.succeeded
         assert result.external_id == "SM_ASYNC"

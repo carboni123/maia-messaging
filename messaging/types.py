@@ -190,7 +190,7 @@ class EmailMessage:
 class SMSMessage:
     """A plain text SMS message."""
 
-    to: str    # E.164 format, e.g. "+5511999999999"
+    to: str  # E.164 format, e.g. "+5511999999999"
     body: str
 
 

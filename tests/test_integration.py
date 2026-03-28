@@ -48,8 +48,7 @@ from messaging.telegram.bot_api import TelegramBotProvider
 @pytest.fixture
 def twilio_provider() -> TwilioProvider:
     """TwilioProvider with mocked Twilio SDK Client."""
-    with patch("messaging.providers.twilio.Client"), \
-         patch("messaging.providers.twilio.TwilioHttpClient"):
+    with patch("messaging.providers.twilio.Client"), patch("messaging.providers.twilio.TwilioHttpClient"):
         config = TwilioConfig(
             account_sid="ACtest",
             auth_token="secret",
@@ -80,7 +79,9 @@ def _twilio_msg(*, sid: str = "SM123", status: str = "sent") -> MagicMock:
     return m
 
 
-def _twilio_failed_msg(*, sid: str = "SM999", error_code: int = 21211, error_message: str = "Invalid 'To' Phone Number") -> MagicMock:
+def _twilio_failed_msg(
+    *, sid: str = "SM999", error_code: int = 21211, error_message: str = "Invalid 'To' Phone Number"
+) -> MagicMock:
     m = MagicMock()
     m.sid = sid
     m.status = "failed"
@@ -230,7 +231,8 @@ class TestTwilioPhoneFallbackE2E:
             if call_number == 1:
                 # First call: 9-digit number → Twilio says invalid
                 raise TwilioRestException(
-                    400, "https://api.twilio.com",
+                    400,
+                    "https://api.twilio.com",
                     msg="The number +5551998644323 is not a valid WhatsApp user",
                     code=63016,
                 )
@@ -257,7 +259,8 @@ class TestTwilioPhoneFallbackE2E:
         """Both 9-digit and 8-digit fail → returns original failure."""
         twilio_provider._client.messages.create = MagicMock(
             side_effect=TwilioRestException(
-                400, "https://api.twilio.com",
+                400,
+                "https://api.twilio.com",
                 msg="Invalid number",
                 code=21211,
             )
@@ -275,7 +278,8 @@ class TestTwilioPhoneFallbackE2E:
         """Rate limit error should NOT trigger phone fallback."""
         twilio_provider._client.messages.create = MagicMock(
             side_effect=TwilioRestException(
-                429, "https://api.twilio.com",
+                429,
+                "https://api.twilio.com",
                 msg="Rate limit exceeded",
                 code=20429,
             )
@@ -293,7 +297,8 @@ class TestTwilioPhoneFallbackE2E:
         """US number has no alternate format, so fallback is skipped."""
         twilio_provider._client.messages.create = MagicMock(
             side_effect=TwilioRestException(
-                400, "https://api.twilio.com",
+                400,
+                "https://api.twilio.com",
                 msg="Invalid number",
                 code=21211,
             )
@@ -316,9 +321,7 @@ class TestTwilioStatusPollE2E:
 
     def test_delivered_status_maps_correctly(self, twilio_provider: TwilioProvider):
         mock_msg = MagicMock(sid="SM123", status="delivered", error_code=None, error_message=None)
-        twilio_provider._client.messages = MagicMock(
-            return_value=MagicMock(fetch=MagicMock(return_value=mock_msg))
-        )
+        twilio_provider._client.messages = MagicMock(return_value=MagicMock(fetch=MagicMock(return_value=mock_msg)))
         gateway = MessagingGateway(twilio_provider)
 
         result = gateway.fetch_status("SM123")
@@ -328,9 +331,7 @@ class TestTwilioStatusPollE2E:
 
     def test_failed_status_includes_error_details(self, twilio_provider: TwilioProvider):
         mock_msg = MagicMock(sid="SM456", status="failed", error_code=30007, error_message="Message expired")
-        twilio_provider._client.messages = MagicMock(
-            return_value=MagicMock(fetch=MagicMock(return_value=mock_msg))
-        )
+        twilio_provider._client.messages = MagicMock(return_value=MagicMock(fetch=MagicMock(return_value=mock_msg)))
         gateway = MessagingGateway(twilio_provider)
 
         result = gateway.fetch_status("SM456")
@@ -342,9 +343,9 @@ class TestTwilioStatusPollE2E:
     def test_unknown_message_returns_error(self, twilio_provider: TwilioProvider):
         twilio_provider._client.messages = MagicMock(
             return_value=MagicMock(
-                fetch=MagicMock(side_effect=TwilioRestException(
-                    404, "https://api.twilio.com", msg="Resource not found"
-                ))
+                fetch=MagicMock(
+                    side_effect=TwilioRestException(404, "https://api.twilio.com", msg="Resource not found")
+                )
             )
         )
         gateway = MessagingGateway(twilio_provider)
@@ -362,11 +363,13 @@ class TestWhatsAppPersonalTextE2E:
 
     def test_text_reaches_adapter_with_correct_payload(self, whatsapp_provider: WhatsAppPersonalProvider):
         mock_client = MagicMock()
-        mock_client.post = MagicMock(return_value=MagicMock(
-            status_code=200,
-            headers={"Content-Type": "application/json"},
-            json=MagicMock(return_value={"payload": {"MessageSid": "wamid.abc123"}}),
-        ))
+        mock_client.post = MagicMock(
+            return_value=MagicMock(
+                status_code=200,
+                headers={"Content-Type": "application/json"},
+                json=MagicMock(return_value={"payload": {"MessageSid": "wamid.abc123"}}),
+            )
+        )
         whatsapp_provider._client = mock_client
         gateway = MessagingGateway(whatsapp_provider)
 
@@ -475,8 +478,8 @@ class TestWhatsAppPersonalMediaE2E:
         assert result.succeeded
         # No caption → no sendText call. 2 media files → 2 calls
         assert len(call_log) == 2
-        assert "sendFile" in call_log[0]    # application/pdf → document → sendFile
-        assert "sendVoice" in call_log[1]   # audio/mpeg → voice → sendVoice
+        assert "sendFile" in call_log[0]  # application/pdf → document → sendFile
+        assert "sendVoice" in call_log[1]  # audio/mpeg → voice → sendVoice
 
     def test_template_rejected_by_whatsapp_personal(self, whatsapp_provider: WhatsAppPersonalProvider):
         """WhatsApp Personal doesn't support templates — verify clean error."""
@@ -502,11 +505,13 @@ class TestPhoneNormalizationE2E:
     def test_whatsapp_prefix_stripped_for_personal_provider(self, whatsapp_provider: WhatsAppPersonalProvider):
         """WhatsApp Personal adapter expects plain E.164, not whatsapp:+ prefix."""
         mock_client = MagicMock()
-        mock_client.post = MagicMock(return_value=MagicMock(
-            status_code=200,
-            headers={"Content-Type": "application/json"},
-            json=MagicMock(return_value={"payload": {"MessageSid": "ok"}}),
-        ))
+        mock_client.post = MagicMock(
+            return_value=MagicMock(
+                status_code=200,
+                headers={"Content-Type": "application/json"},
+                json=MagicMock(return_value={"payload": {"MessageSid": "ok"}}),
+            )
+        )
         whatsapp_provider._client = mock_client
         gateway = MessagingGateway(whatsapp_provider)
 
@@ -536,9 +541,7 @@ class TestNetworkFailureE2E:
     """Verify that network-level failures are caught and returned as DeliveryResult."""
 
     def test_twilio_connection_error(self, twilio_provider: TwilioProvider):
-        twilio_provider._client.messages.create = MagicMock(
-            side_effect=ConnectionError("DNS resolution failed")
-        )
+        twilio_provider._client.messages.create = MagicMock(side_effect=ConnectionError("DNS resolution failed"))
         gateway = MessagingGateway(twilio_provider)
 
         msg = WhatsAppText(to="whatsapp:+5511999999999", body="Hello")
@@ -577,9 +580,7 @@ def _meta_ok(wamid: str = "wamid.meta123") -> MagicMock:
 @pytest.fixture
 def meta_provider() -> MetaWhatsAppProvider:
     """MetaWhatsAppProvider for integration tests with mocked httpx client."""
-    provider = MetaWhatsAppProvider(
-        MetaWhatsAppConfig(phone_number_id="999888777", access_token="EAAintegration")
-    )
+    provider = MetaWhatsAppProvider(MetaWhatsAppConfig(phone_number_id="999888777", access_token="EAAintegration"))
     return provider
 
 
@@ -788,8 +789,7 @@ class TestTelegramErrorE2E:
 @pytest.fixture
 def sms_provider() -> TwilioSMSProvider:
     """TwilioSMSProvider with mocked Twilio SDK Client."""
-    with patch("messaging.sms.twilio.Client"), \
-         patch("messaging.sms.twilio.TwilioHttpClient"):
+    with patch("messaging.sms.twilio.Client"), patch("messaging.sms.twilio.TwilioHttpClient"):
         config = TwilioSMSConfig(
             account_sid="ACtest",
             auth_token="secret",
@@ -803,9 +803,7 @@ class TestSMSTextE2E:
     """Full flow: SMSMessage → TwilioSMSProvider → Twilio SDK."""
 
     def test_sms_arrives_at_twilio_with_correct_params(self, sms_provider: TwilioSMSProvider):
-        sms_provider._client.messages.create = MagicMock(
-            return_value=_twilio_msg(sid="SM_sms_e2e", status="queued")
-        )
+        sms_provider._client.messages.create = MagicMock(return_value=_twilio_msg(sid="SM_sms_e2e", status="queued"))
 
         msg = SMSMessage(to="+5511999999999", body="Your code is 123456")
         result = sms_provider.send(msg)
@@ -844,10 +842,7 @@ class TestSMSErrorE2E:
 
     def test_twilio_error_returns_failure_with_code(self, sms_provider: TwilioSMSProvider):
         sms_provider._client.messages.create = MagicMock(
-            side_effect=TwilioRestException(
-                400, "https://api.twilio.com",
-                msg="Invalid 'To' Phone Number", code=21211
-            )
+            side_effect=TwilioRestException(400, "https://api.twilio.com", msg="Invalid 'To' Phone Number", code=21211)
         )
 
         msg = SMSMessage(to="+invalid", body="Hi")
@@ -857,9 +852,7 @@ class TestSMSErrorE2E:
         assert result.error_code == "21211"
 
     def test_network_error_returns_failure(self, sms_provider: TwilioSMSProvider):
-        sms_provider._client.messages.create = MagicMock(
-            side_effect=ConnectionError("Network unreachable")
-        )
+        sms_provider._client.messages.create = MagicMock(side_effect=ConnectionError("Network unreachable"))
 
         msg = SMSMessage(to="+5511999999999", body="Hi")
         result = sms_provider.send(msg)

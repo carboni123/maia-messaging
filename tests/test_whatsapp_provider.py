@@ -32,23 +32,25 @@ def _success_response(payload: dict) -> MagicMock:
 
 class TestWhatsAppSendText:
     def test_send_text_success(self, whatsapp_personal_config: WhatsAppPersonalConfig):
-        mock_response = _success_response({
-            "payload": {
-                "Sid": "msg_123",
-                "MessageSid": "msg_123",
-                "AccountSid": "ACC123",
-                "MessagingServiceSid": "MSS123",
-                "Direction": "outbound",
-                "Status": "sent",
-                "DateCreated": "2024-01-01",
-                "DateUpdated": "2024-01-01",
-                "NumSegments": "1",
-                "NumMedia": "0",
-                "Price": "0",
-                "PriceUnit": "USD",
-                "ApiVersion": "v1",
+        mock_response = _success_response(
+            {
+                "payload": {
+                    "Sid": "msg_123",
+                    "MessageSid": "msg_123",
+                    "AccountSid": "ACC123",
+                    "MessagingServiceSid": "MSS123",
+                    "Direction": "outbound",
+                    "Status": "sent",
+                    "DateCreated": "2024-01-01",
+                    "DateUpdated": "2024-01-01",
+                    "NumSegments": "1",
+                    "NumMedia": "0",
+                    "Price": "0",
+                    "PriceUnit": "USD",
+                    "ApiVersion": "v1",
+                }
             }
-        })
+        )
         provider, _ = _make_provider(whatsapp_personal_config, mock_response)
         result = provider.send(WhatsAppText(to="+5511999999999", body="Hello"))
 
@@ -215,7 +217,8 @@ class TestWhatsAppMediaCaptionFlow:
         return _success_response({"id": {"_serialized": "media_001"}})
 
     def test_caption_sent_as_text_then_media_without_caption(
-        self, whatsapp_personal_config: WhatsAppPersonalConfig,
+        self,
+        whatsapp_personal_config: WhatsAppPersonalConfig,
     ):
         provider, mock_client = _make_provider(whatsapp_personal_config)
         responses = [self._make_text_response(), self._make_media_response()]
@@ -247,7 +250,8 @@ class TestWhatsAppMultiFileMedia:
         return _success_response({"id": {"_serialized": msg_id}})
 
     def test_multiple_files_sent_individually(
-        self, whatsapp_personal_config: WhatsAppPersonalConfig,
+        self,
+        whatsapp_personal_config: WhatsAppPersonalConfig,
     ):
         provider, mock_client = _make_provider(whatsapp_personal_config)
         responses = [self._make_response("id_1"), self._make_response("id_2")]
@@ -273,7 +277,8 @@ class TestWhatsAppMultiFileMedia:
         assert result.external_id == "id_1"
 
     def test_partial_failure_returns_failed_status_with_id(
-        self, whatsapp_personal_config: WhatsAppPersonalConfig,
+        self,
+        whatsapp_personal_config: WhatsAppPersonalConfig,
     ):
         """When some files succeed and others fail, status=FAILED but external_id is set."""
         success_resp = self._make_response("id_ok")
@@ -298,7 +303,8 @@ class TestWhatsAppMultiFileMedia:
         assert "file too large" in (result.error_message or "")
 
     def test_all_files_fail(
-        self, whatsapp_personal_config: WhatsAppPersonalConfig,
+        self,
+        whatsapp_personal_config: WhatsAppPersonalConfig,
     ):
         error_resp = _success_response({"error": "upload failed"})
 
@@ -377,9 +383,7 @@ class TestWhatsAppPersonalContextManager:
 
 class TestWhatsAppPersonalSendAsync:
     async def test_send_async_returns_result(self, whatsapp_personal_config: WhatsAppPersonalConfig):
-        mock_response = _success_response({
-            "payload": {"MessageSid": "msg_async"}
-        })
+        mock_response = _success_response({"payload": {"MessageSid": "msg_async"}})
         provider, _ = _make_provider(whatsapp_personal_config, mock_response)
         result = await provider.send_async(WhatsAppText(to="+5511999999999", body="Hello async"))
         assert result.succeeded

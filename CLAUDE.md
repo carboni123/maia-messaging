@@ -11,7 +11,7 @@ Import name: `messaging`
 
 - **Zero app dependencies.** This library must never import from the consuming app (no `app.models`, no `app.settings`, no SQLAlchemy, no FastAPI, no Celery). If you need something from the app, it belongs in the app's adapter layer, not here.
 - **No database.** All state is passed in via function arguments and returned via dataclasses.
-- **Tests run in isolation.** `pytest tests/` must pass with only `twilio`, `sendgrid`, and `httpx` installed. Mock external boundaries (Twilio SDK, HTTP calls, SendGrid API), never real services.
+- **Tests run in isolation.** `pytest tests/` must pass with only `twilio`, `sendgrid`, `httpx`, and `pydantic` installed. Mock external boundaries (Twilio SDK, HTTP calls, SendGrid API), never real services.
 
 ## Development commands
 

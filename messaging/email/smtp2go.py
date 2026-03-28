@@ -73,7 +73,9 @@ class Smtp2GoProvider:
 
     async def send_async(self, message: EmailMessage) -> DeliveryResult:
         """Send an email asynchronously (thread-safe via lock)."""
+
         def _send() -> DeliveryResult:
             with self._lock:
                 return self.send(message)
+
         return await asyncio.to_thread(_send)

@@ -6,7 +6,9 @@ from messaging import DeliveryStatus, EmailMessage, Smtp2GoConfig
 from messaging.email.smtp2go import SMTP2GO_API_URL, Smtp2GoProvider
 
 
-def _make_provider(api_key: str = "test_key", mock_response: MagicMock | None = None) -> tuple[Smtp2GoProvider, MagicMock]:
+def _make_provider(
+    api_key: str = "test_key", mock_response: MagicMock | None = None
+) -> tuple[Smtp2GoProvider, MagicMock]:
     """Create a provider with a mocked httpx client."""
     provider = Smtp2GoProvider(Smtp2GoConfig(api_key=api_key))
     mock_client = MagicMock()

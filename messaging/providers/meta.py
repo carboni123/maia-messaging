@@ -9,7 +9,20 @@ import threading
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
+from messaging.providers.meta_schemas import (
+    MetaErrorResponse,
+    MetaMediaMessage,
+    MetaMediaObject,
+    MetaMessageResponse,
+    MetaTemplateComponentPayload,
+    MetaTemplateLanguage,
+    MetaTemplateMessage,
+    MetaTemplatePayload,
+    MetaTextBody,
+    MetaTextMessage,
+)
 from messaging.types import (
     DeliveryResult,
     DeliveryStatus,
@@ -117,9 +130,11 @@ class MetaWhatsAppProvider:
 
     async def send_async(self, message: Message) -> DeliveryResult:
         """Send a message asynchronously (thread-safe via lock)."""
+
         def _send() -> DeliveryResult:
             with self._lock:
                 return self.send(message)
+
         return await asyncio.to_thread(_send)
 
     def fetch_status(self, external_id: str) -> DeliveryResult | None:
@@ -135,13 +150,11 @@ class MetaWhatsAppProvider:
         if len(body) > MAX_BODY_CHARS:
             body = body[:MAX_BODY_CHARS]
 
-        payload: dict[str, Any] = {
-            "messaging_product": "whatsapp",
-            "to": _normalize_phone(message.to),
-            "type": "text",
-            "text": {"body": body},
-        }
-        return self._post(payload)
+        msg = MetaTextMessage(
+            to=_normalize_phone(message.to),
+            text=MetaTextBody(body=body),
+        )
+        return self._post(msg.model_dump())
 
     def _send_media(self, message: WhatsAppMedia) -> DeliveryResult:
         if not message.media_urls:
@@ -154,18 +167,17 @@ class MetaWhatsAppProvider:
             mime = message.media_types[idx] if idx < len(message.media_types) else ""
             meta_type = _media_type_from_mime(mime)
 
-            media_obj: dict[str, Any] = {"link": media_url}
-            # Meta Cloud API only supports captions on image, video, and document — not audio.
-            if message.caption and idx == 0 and meta_type != "audio":
-                media_obj["caption"] = message.caption
+            caption = message.caption if (message.caption and idx == 0 and meta_type != "audio") else None
+            media_obj = MetaMediaObject(link=media_url, caption=caption)
 
-            payload: dict[str, Any] = {
-                "messaging_product": "whatsapp",
-                "to": to,
-                "type": meta_type,
-                meta_type: media_obj,
-            }
-            last_result = self._post(payload)
+            msg = MetaMediaMessage.model_validate(
+                {
+                    "to": to,
+                    "type": meta_type,
+                    meta_type: media_obj,
+                }
+            )
+            last_result = self._post(msg.model_dump(exclude_none=True))
             if not last_result.succeeded:
                 return last_result
 
@@ -174,20 +186,19 @@ class MetaWhatsAppProvider:
         return last_result
 
     def _send_template(self, message: MetaWhatsAppTemplate) -> DeliveryResult:
-        template_obj: dict[str, Any] = {
-            "name": message.template_name,
-            "language": {"code": message.language_code},
-        }
+        components = None
         if message.components:
-            template_obj["components"] = message.components
-
-        payload: dict[str, Any] = {
-            "messaging_product": "whatsapp",
-            "to": _normalize_phone(message.to),
-            "type": "template",
-            "template": template_obj,
-        }
-        return self._post(payload)
+            components = [MetaTemplateComponentPayload(**comp) for comp in message.components]
+        template_payload = MetaTemplatePayload(
+            name=message.template_name,
+            language=MetaTemplateLanguage(code=message.language_code),
+            components=components,
+        )
+        msg = MetaTemplateMessage(
+            to=_normalize_phone(message.to),
+            template=template_payload,
+        )
+        return self._post(msg.model_dump(exclude_none=True))
 
     def _post(self, payload: dict[str, Any]) -> DeliveryResult:
         """Make a POST request to the Meta WhatsApp Cloud API."""
@@ -199,20 +210,21 @@ class MetaWhatsAppProvider:
             )
             data = response.json()
 
-            # Meta error response format: {"error": {"message": ..., "code": ...}}
             if "error" in data:
-                error = data["error"]
-                error_code = str(error.get("code", ""))
-                description = error.get("message", "Unknown Meta API error")
+                error_resp = MetaErrorResponse.model_validate(data)
+                error_code = str(error_resp.error.code) if error_resp.error.code is not None else ""
+                description = error_resp.error.message
                 logger.error("Meta WhatsApp API error: [%s] %s", error_code, description)
                 return DeliveryResult.fail(description, error_code=error_code)
 
-            # Success response: {"messages": [{"id": "wamid.xxx"}]}
-            messages = data.get("messages", [])
-            external_id = messages[0]["id"] if messages else None
+            success_resp = MetaMessageResponse.model_validate(data)
+            external_id = success_resp.messages[0].id if success_resp.messages else None
             logger.info("WhatsApp message sent via Meta Cloud API, wamid=%s", external_id)
             return DeliveryResult.ok(status=DeliveryStatus.SENT, external_id=external_id)
 
+        except ValidationError as exc:
+            logger.exception("Failed to validate Meta API response")
+            return DeliveryResult.fail(f"Invalid Meta API response: {exc}")
         except Exception as exc:
             logger.exception("Unexpected error calling Meta WhatsApp Cloud API")
             return DeliveryResult.fail(str(exc))

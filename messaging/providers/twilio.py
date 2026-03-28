@@ -79,9 +79,7 @@ class TwilioProvider:
         if isinstance(message, WhatsAppTemplate):
             return self._send_template(message)
         if isinstance(message, MetaWhatsAppTemplate):
-            return DeliveryResult.fail(
-                "TwilioProvider does not support MetaWhatsAppTemplate; use MetaWhatsAppProvider"
-            )
+            return DeliveryResult.fail("TwilioProvider does not support MetaWhatsAppTemplate; use MetaWhatsAppProvider")
         return DeliveryResult.fail(f"Unsupported message type: {type(message).__name__}")
 
     async def send_async(self, message: Message) -> DeliveryResult:

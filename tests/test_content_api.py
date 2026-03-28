@@ -18,8 +18,7 @@ from messaging.content_api import (
 
 def _make_api(config: TwilioConfig) -> TwilioContentAPI:
     """Create a TwilioContentAPI with a mocked Client."""
-    with patch("messaging.content_api.Client"), \
-         patch("messaging.content_api.TwilioHttpClient"):
+    with patch("messaging.content_api.Client"), patch("messaging.content_api.TwilioHttpClient"):
         return TwilioContentAPI(config)
 
 
@@ -269,9 +268,7 @@ class TestGetTemplateStatus:
         # Ensure template_name attr does NOT exist so getattr falls through
         del mock_resource.template_name
 
-        api._client.content.v1.contents = MagicMock(
-            return_value=MagicMock(fetch=MagicMock(return_value=mock_resource))
-        )
+        api._client.content.v1.contents = MagicMock(return_value=MagicMock(fetch=MagicMock(return_value=mock_resource)))
 
         result = api.get_template_status(template_sid="HX123")
         assert result["sid"] == "HX123"
@@ -284,9 +281,7 @@ class TestGetTemplateStatus:
         api = _make_api(twilio_config)
         api._client.content.v1.contents = MagicMock(
             return_value=MagicMock(
-                fetch=MagicMock(
-                    side_effect=TwilioRestException(404, "https://content.twilio.com", msg="Not found")
-                )
+                fetch=MagicMock(side_effect=TwilioRestException(404, "https://content.twilio.com", msg="Not found"))
             )
         )
 
@@ -301,16 +296,22 @@ class TestListTemplates:
     def test_list_templates_success(self, twilio_config: TwilioConfig):
         api = _make_api(twilio_config)
         mock_resource_1 = MagicMock(
-            sid="HX1", friendly_name="tpl_1", language="en",
-            types=None, variables=None, approval_requests=None,
+            sid="HX1",
+            friendly_name="tpl_1",
+            language="en",
+            types=None,
+            variables=None,
+            approval_requests=None,
         )
         mock_resource_2 = MagicMock(
-            sid="HX2", friendly_name="tpl_2", language="pt",
-            types=None, variables=None, approval_requests={"status": "pending"},
+            sid="HX2",
+            friendly_name="tpl_2",
+            language="pt",
+            types=None,
+            variables=None,
+            approval_requests={"status": "pending"},
         )
-        api._client.content.v1.content_and_approvals.stream = MagicMock(
-            return_value=[mock_resource_1, mock_resource_2]
-        )
+        api._client.content.v1.content_and_approvals.stream = MagicMock(return_value=[mock_resource_1, mock_resource_2])
 
         result = api.list_templates()
         assert len(result) == 2
@@ -379,10 +380,7 @@ class TestCreateQuickReply:
 
         api.create_quick_reply(
             body="Pick one:",
-            buttons=[
-                {"id": f"btn_{i}", "title": f"Option {i}"}
-                for i in range(5)
-            ],
+            buttons=[{"id": f"btn_{i}", "title": f"Option {i}"} for i in range(5)],
         )
 
         call_kwargs = api._client.request.call_args

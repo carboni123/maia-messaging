@@ -131,10 +131,32 @@ from .content_api import TwilioContentAPI, TwilioContentAPIError, TwilioTemplate
 from .email import EmailProvider, SendGridProvider, Smtp2GoProvider
 from .gateway import MessagingGateway
 from .mock import MockProvider, SentMessage
-from .phone import denormalize_phone_for_whatsapp, format_whatsapp_number, normalize_phone, normalize_whatsapp_id, phones_match
+from .phone import (
+    denormalize_phone_for_whatsapp,
+    format_whatsapp_number,
+    normalize_phone,
+    normalize_whatsapp_id,
+    phones_match,
+)
 from .pricing import TEMPLATE_PRICING, calculate_template_cost
 from .providers.base import MessagingProvider
 from .providers.meta import MetaWhatsAppProvider
+from .providers.meta_schemas import (
+    MetaErrorDetail,
+    MetaErrorResponse,
+    MetaMediaMessage,
+    MetaMediaObject,
+    MetaMessageContact,
+    MetaMessageEntry,
+    MetaMessageResponse,
+    MetaTemplateComponentPayload,
+    MetaTemplateLanguage,
+    MetaTemplateMessage,
+    MetaTemplateParameter,
+    MetaTemplatePayload,
+    MetaTextBody,
+    MetaTextMessage,
+)
 from .providers.twilio import TwilioProvider, empty_messaging_response_xml
 from .providers.whatsapp_personal import WhatsAppPersonalProvider
 from .sms import SMSProvider, TwilioSMSProvider
@@ -210,6 +232,21 @@ __all__ = [
     "TelegramText",
     "TelegramMedia",
     "TelegramConfig",
+    # Types — Meta WhatsApp API schemas
+    "MetaErrorDetail",
+    "MetaErrorResponse",
+    "MetaMediaMessage",
+    "MetaMediaObject",
+    "MetaMessageContact",
+    "MetaMessageEntry",
+    "MetaMessageResponse",
+    "MetaTemplateComponentPayload",
+    "MetaTemplateLanguage",
+    "MetaTemplateMessage",
+    "MetaTemplateParameter",
+    "MetaTemplatePayload",
+    "MetaTextBody",
+    "MetaTextMessage",
     # Phone
     "denormalize_phone_for_whatsapp",
     "format_whatsapp_number",

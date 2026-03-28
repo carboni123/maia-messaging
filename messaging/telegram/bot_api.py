@@ -67,9 +67,11 @@ class TelegramBotProvider:
 
     async def send_async(self, message: TelegramMessage) -> DeliveryResult:
         """Send a message asynchronously (thread-safe via lock)."""
+
         def _send() -> DeliveryResult:
             with self._lock:
                 return self.send(message)
+
         return await asyncio.to_thread(_send)
 
     def _send_text(self, message: TelegramText) -> DeliveryResult:

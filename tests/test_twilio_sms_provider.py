@@ -11,8 +11,7 @@ from messaging.sms.twilio import TwilioSMSProvider
 
 def _make_provider(config: TwilioSMSConfig) -> TwilioSMSProvider:
     """Create a TwilioSMSProvider with a mocked Client."""
-    with patch("messaging.sms.twilio.Client"), \
-         patch("messaging.sms.twilio.TwilioHttpClient"):
+    with patch("messaging.sms.twilio.Client"), patch("messaging.sms.twilio.TwilioHttpClient"):
         return TwilioSMSProvider(config)
 
 
@@ -57,9 +56,7 @@ class TestTwilioSMSErrorHandling:
 
         provider = _make_provider(twilio_sms_config)
         provider._client.messages.create = MagicMock(
-            side_effect=TwilioRestException(
-                400, "https://api.twilio.com", msg="Invalid 'To' Phone Number", code=21211
-            )
+            side_effect=TwilioRestException(400, "https://api.twilio.com", msg="Invalid 'To' Phone Number", code=21211)
         )
 
         result = provider.send(SMSMessage(to="+invalid", body="Hi"))
@@ -131,9 +128,7 @@ class TestTwilioSMSFetchStatus:
     def test_fetch_status_unknown_error_returns_none(self, twilio_sms_config: TwilioSMSConfig):
         provider = _make_provider(twilio_sms_config)
         provider._client.messages = MagicMock(
-            return_value=MagicMock(
-                fetch=MagicMock(side_effect=RuntimeError("unexpected"))
-            )
+            return_value=MagicMock(fetch=MagicMock(side_effect=RuntimeError("unexpected")))
         )
 
         result = provider.fetch_status("SM123")
@@ -162,9 +157,7 @@ class TestTwilioSMSAsync:
         mock_msg = MagicMock(sid="SM123", status="queued", error_code=None, error_message=None)
         provider._client.messages.create = MagicMock(return_value=mock_msg)
 
-        result = asyncio.run(
-            provider.send_async(SMSMessage(to="+5511999999999", body="Async SMS"))
-        )
+        result = asyncio.run(provider.send_async(SMSMessage(to="+5511999999999", body="Async SMS")))
         assert result.succeeded
         assert result.external_id == "SM123"
 
@@ -172,10 +165,11 @@ class TestTwilioSMSAsync:
 class TestTwilioSMSInit:
     def test_validates_from_number(self):
         with pytest.raises(ValueError, match="from_number"):
-            with patch("messaging.sms.twilio.Client"), \
-                 patch("messaging.sms.twilio.TwilioHttpClient"):
-                TwilioSMSProvider(TwilioSMSConfig(
-                    account_sid="AC123",
-                    auth_token="token",
-                    from_number="",
-                ))
+            with patch("messaging.sms.twilio.Client"), patch("messaging.sms.twilio.TwilioHttpClient"):
+                TwilioSMSProvider(
+                    TwilioSMSConfig(
+                        account_sid="AC123",
+                        auth_token="token",
+                        from_number="",
+                    )
+                )

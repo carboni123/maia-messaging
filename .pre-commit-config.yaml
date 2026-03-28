@@ -1,0 +1,34 @@
+repos:
+  - repo: local
+    hooks:
+      # ── Lint ──
+      - id: ruff-check
+        name: ruff check
+        entry: ruff check messaging/ tests/ --fix
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      # ── Format ──
+      - id: ruff-format
+        name: ruff format
+        entry: ruff format messaging/ tests/
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      # ── Type-check ──
+      - id: mypy
+        name: mypy
+        entry: mypy messaging/
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      # ── Tests (excludes benchmarks — too slow for pre-commit) ──
+      - id: pytest
+        name: pytest
+        entry: pytest tests/ -x -q --ignore=tests/test_benchmarks.py
+        language: system
+        types: [python]
+        pass_filenames: false

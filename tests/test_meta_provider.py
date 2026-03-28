@@ -15,7 +15,9 @@ from messaging import (
 from messaging.providers.meta import MetaWhatsAppProvider, _normalize_phone
 
 
-def _make_provider(config: MetaWhatsAppConfig, mock_response: MagicMock | None = None) -> tuple[MetaWhatsAppProvider, MagicMock]:
+def _make_provider(
+    config: MetaWhatsAppConfig, mock_response: MagicMock | None = None
+) -> tuple[MetaWhatsAppProvider, MagicMock]:
     """Create a provider with a mocked httpx client."""
     provider = MetaWhatsAppProvider(config)
     mock_client = MagicMock()
@@ -391,3 +393,16 @@ class TestMetaWhatsAppSendAsync:
         result = await provider.send_async(WhatsAppText(to="+5511999999999", body="Hello async"))
         assert result.succeeded
         assert result.external_id == "wamid.async1"
+
+
+class TestResponseValidation:
+    def test_malformed_success_response_fails_gracefully(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        """If Meta returns an unexpected response shape, the provider fails gracefully."""
+        provider, mock_client = _make_provider(meta_whatsapp_config, MagicMock())
+        # Response missing required 'contacts' and 'messages' fields
+        mock_client.post.return_value.json.return_value = {"messaging_product": "whatsapp"}
+
+        result = provider.send(WhatsAppText(to="+5511999999999", body="Hello"))
+
+        assert not result.succeeded
+        assert "Invalid Meta API response" in result.error_message
