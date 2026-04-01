@@ -134,14 +134,15 @@ def denormalize_phone_for_whatsapp(phone: str | None, country: str = "BR") -> st
     return phone
 
 
-def format_whatsapp_number(number: str | None) -> str | None:
+def format_whatsapp_number(number: str | None, default_country: str = "BR") -> str | None:
     """Normalize a phone number to the ``whatsapp:+E.164`` format.
 
     Args:
         number: The raw phone number which may include punctuation or a ``whatsapp:`` prefix.
+        default_country: ISO 3166-1 alpha-2 country code for local numbers (default: BR).
 
     Returns:
-        The number formatted as ``whatsapp:+E.164`` or ``None`` if input is empty.
+        The number formatted as ``whatsapp:+E.164`` or ``None`` if input is empty/invalid.
     """
     if not number:
         return None
@@ -155,14 +156,17 @@ def format_whatsapp_number(number: str | None) -> str | None:
     elif is_bsuid(number):
         return f"whatsapp:{number}"
 
-    digits = re.sub(r"\D", "", number)
-    if not digits:
+    # Use normalize_phone for proper validation and E.164 formatting
+    normalized = normalize_phone(number, default_country=default_country)
+    if not normalized:
         return None
 
-    if len(digits) == 10:  # Assume US numbers without country code
-        digits = "1" + digits
-
-    return f"whatsapp:+{digits}"
+    # Ensure whatsapp: prefix and + prefix
+    if normalized.startswith("whatsapp:"):
+        return normalized
+    if not normalized.startswith("+"):
+        normalized = f"+{normalized}"
+    return f"whatsapp:{normalized}"
 
 
 def phones_match(phone1: str | None, phone2: str | None, country: str = "BR") -> bool:

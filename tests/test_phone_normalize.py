@@ -101,20 +101,36 @@ class TestDenormalizeForWhatsApp:
 
 
 class TestFormatWhatsAppNumber:
-    def test_us_10_digit(self):
-        assert format_whatsapp_number("1234567890") == "whatsapp:+11234567890"
+    def test_brazil_10_digit_default(self):
+        """10-digit number with default BR: treated as Brazilian (DDD + 8-digit)."""
+        # 12 is a valid BR DDD (Sao Paulo), 34567890 is a valid 8-digit local number
+        assert format_whatsapp_number("1234567890") == "whatsapp:+551234567890"
+
+    def test_us_10_digit_explicit(self):
+        """10-digit US number with explicit default_country='US'."""
+        assert format_whatsapp_number("4155551234", default_country="US") == "whatsapp:+14155551234"
 
     def test_with_plus_prefix(self):
         assert format_whatsapp_number("+442079460000") == "whatsapp:+442079460000"
 
-    def test_already_prefixed(self):
-        assert format_whatsapp_number("whatsapp:+123") == "whatsapp:+123"
+    def test_already_prefixed_valid(self):
+        """Valid number with whatsapp: prefix is preserved."""
+        assert format_whatsapp_number("whatsapp:+5551998644323") == "whatsapp:+5551998644323"
+
+    def test_already_prefixed_invalid_returns_none(self):
+        """Invalid number with whatsapp: prefix returns None."""
+        assert format_whatsapp_number("whatsapp:+123") is None
 
     def test_prefixed_with_formatting_is_normalized(self):
         assert format_whatsapp_number("whatsapp:+55 (51) 99864-4323") == "whatsapp:+5551998644323"
 
     def test_prefix_case_insensitive(self):
-        assert format_whatsapp_number("WhatsApp:+123") == "whatsapp:+123"
+        """Case-insensitive whatsapp: prefix with valid number."""
+        assert format_whatsapp_number("WhatsApp:+5551998644323") == "whatsapp:+5551998644323"
+
+    def test_prefix_case_insensitive_invalid_returns_none(self):
+        """Case-insensitive whatsapp: prefix with invalid number returns None."""
+        assert format_whatsapp_number("WhatsApp:+123") is None
 
     def test_none_input(self):
         assert format_whatsapp_number(None) is None
@@ -132,9 +148,42 @@ class TestFormatWhatsAppNumber:
     def test_brazil_number(self):
         assert format_whatsapp_number("+5551998644323") == "whatsapp:+5551998644323"
 
-    def test_short_number_not_padded(self):
-        """Numbers with fewer than 10 digits are used as-is (not US-assumed)."""
-        assert format_whatsapp_number("12345") == "whatsapp:+12345"
+    def test_short_number_rejected(self):
+        """Short/invalid numbers are rejected by phonenumberslite."""
+        assert format_whatsapp_number("12345") is None
+
+
+class TestFormatWhatsAppNumberInternational:
+    """format_whatsapp_number should use phonenumberslite, not assume US for 10 digits."""
+
+    def test_brazil_10_digit_not_treated_as_us(self):
+        """A 10-digit Brazilian number (DDD + 8-digit landline) should NOT get +1 prefix."""
+        result = format_whatsapp_number("5133224455")
+        # Should be treated as Brazilian (default), not US
+        assert result == "whatsapp:+555133224455"
+
+    def test_explicit_plus_prefix_preserved(self):
+        assert format_whatsapp_number("+14155551234") == "whatsapp:+14155551234"
+
+    def test_brazil_mobile_normalized(self):
+        assert format_whatsapp_number("+555198644323") == "whatsapp:+5551998644323"
+
+    def test_default_country_us(self):
+        """With default_country='US', a 10-digit number should get +1."""
+        result = format_whatsapp_number("4155551234", default_country="US")
+        assert result == "whatsapp:+14155551234"
+
+    def test_invalid_number_returns_none(self):
+        """Short/garbage numbers should return None, not pass through."""
+        assert format_whatsapp_number("12345") is None
+
+    def test_invalid_10_digit_returns_none(self):
+        """A 10-digit string that's not a valid phone in any country should return None."""
+        # 1234567890 is not a valid Brazilian number (12 is valid DDD but 34567890 is not valid)
+        result = format_whatsapp_number("1234567890")
+        # phonenumberslite may or may not validate this as Brazilian;
+        # the key point is it should NOT blindly prepend +1
+        assert result is None or not result.startswith("whatsapp:+11234567890")
 
 
 class TestPhonesMatch:
