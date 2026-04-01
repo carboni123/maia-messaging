@@ -13,6 +13,7 @@ from twilio.http.http_client import TwilioHttpClient  # type: ignore[import-unty
 from twilio.rest import Client  # type: ignore[import-untyped]
 from twilio.twiml.messaging_response import MessagingResponse  # type: ignore[import-untyped]
 
+from messaging.phone import is_bsuid
 from messaging.twilio_utils import map_twilio_status
 from messaging.types import (
     DeliveryResult,
@@ -104,6 +105,25 @@ class TwilioProvider:
             logger.exception("Failed to fetch message status for %s", external_id)
             return None
 
+    # ── Private helpers ────────────────────────────────────────────
+
+    @staticmethod
+    def _format_to(to: str) -> str:
+        """Ensure the ``to`` field has the ``whatsapp:`` prefix.
+
+        Twilio requires ``whatsapp:+E.164`` for phone numbers and
+        ``whatsapp:CC.xxx`` for BSUIDs.  This method adds the prefix
+        when missing and avoids double-prefixing.
+        """
+        if to.lower().startswith("whatsapp:"):
+            inner = to[9:]
+            if is_bsuid(inner):
+                return f"whatsapp:{inner}"
+            return to
+        if is_bsuid(to):
+            return f"whatsapp:{to}"
+        return to
+
     # ── Private dispatch ──────────────────────────────────────────
 
     def _send_text(self, message: WhatsAppText) -> DeliveryResult:
@@ -115,7 +135,7 @@ class TwilioProvider:
             body = body[:MAX_BODY_CHARS]
 
         params: dict[str, Any] = {
-            "to": message.to,
+            "to": self._format_to(message.to),
             "from_": self._config.whatsapp_number,
             "body": body,
         }
@@ -129,7 +149,7 @@ class TwilioProvider:
             return DeliveryResult.fail("No media URLs provided")
 
         params: dict[str, Any] = {
-            "to": message.to,
+            "to": self._format_to(message.to),
             "from_": self._config.whatsapp_number,
             "media_url": message.media_urls,
         }
@@ -147,7 +167,7 @@ class TwilioProvider:
 
     def _send_template(self, message: WhatsAppTemplate) -> DeliveryResult:
         params: dict[str, Any] = {
-            "to": message.to,
+            "to": self._format_to(message.to),
             "from_": self._config.whatsapp_number,
             "content_sid": message.content_sid,
             "content_variables": json.dumps(message.content_variables),

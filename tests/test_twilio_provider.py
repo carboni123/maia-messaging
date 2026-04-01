@@ -314,6 +314,74 @@ class TestTwilioStatusMapping:
         assert result.status == DeliveryStatus.QUEUED
 
 
+class TestBsuidSupport:
+    """Twilio requires ``whatsapp:CC.xxx`` for BSUID recipients."""
+
+    def test_send_text_with_bare_bsuid(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM_BSUID", status="sent", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        result = provider.send(WhatsAppText(to="BR.1A2B3C4D5E6F", body="Hello"))
+
+        assert result.succeeded
+        call_kwargs = provider._client.messages.create.call_args
+        assert call_kwargs.kwargs["to"] == "whatsapp:BR.1A2B3C4D5E6F"
+
+    def test_send_text_with_prefixed_bsuid(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM_BSUID", status="sent", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        result = provider.send(WhatsAppText(to="whatsapp:BR.1A2B3C4D5E6F", body="Hello"))
+
+        assert result.succeeded
+        call_kwargs = provider._client.messages.create.call_args
+        assert call_kwargs.kwargs["to"] == "whatsapp:BR.1A2B3C4D5E6F"
+
+    def test_send_media_with_bsuid(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM_BSUID", status="queued", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        msg = WhatsAppMedia(
+            to="BR.1A2B3C4D5E6F",
+            media_urls=["https://example.com/file.pdf"],
+            caption="Report",
+        )
+        result = provider.send(msg)
+
+        assert result.succeeded
+        call_kwargs = provider._client.messages.create.call_args
+        assert call_kwargs.kwargs["to"] == "whatsapp:BR.1A2B3C4D5E6F"
+
+    def test_send_template_with_bsuid(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM_BSUID", status="accepted", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        msg = WhatsAppTemplate(
+            to="BR.1A2B3C4D5E6F",
+            content_sid="HX123",
+            content_variables={"1": "John"},
+        )
+        result = provider.send(msg)
+
+        assert result.succeeded
+        call_kwargs = provider._client.messages.create.call_args
+        assert call_kwargs.kwargs["to"] == "whatsapp:BR.1A2B3C4D5E6F"
+
+    def test_phone_number_not_affected(self, twilio_config: TwilioConfig):
+        provider = _make_provider(twilio_config)
+        mock_msg = MagicMock(sid="SM123", status="sent", error_code=None, error_message=None)
+        provider._client.messages.create = MagicMock(return_value=mock_msg)
+
+        provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello"))
+
+        call_kwargs = provider._client.messages.create.call_args
+        assert call_kwargs.kwargs["to"] == "whatsapp:+5511999999999"
+
+
 class TestEmptyMessagingResponseXml:
     def test_returns_xml_string(self):
         xml = empty_messaging_response_xml()
