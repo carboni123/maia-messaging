@@ -282,6 +282,21 @@ class TestInternationalNormalization:
         assert normalize_phone("+525551234567") == "+525551234567"
 
 
+class TestPhonesMatchInternational:
+    def test_us_numbers_with_different_formatting(self):
+        assert phones_match("+14155551234", "1-415-555-1234", country="US") is True
+
+    def test_uk_numbers_match(self):
+        assert phones_match("+442079460000", "442079460000", country="GB") is True
+
+    def test_different_countries_dont_match(self):
+        assert phones_match("+14155551234", "+442079460000", country="US") is False
+
+    def test_brazil_still_uses_brazil_logic(self):
+        """Brazil path should still handle 8/9 digit matching."""
+        assert phones_match("+555198644323", "+5551998644323") is True
+
+
 class TestPhoneValidation:
     """phonenumberslite should reject garbage inputs."""
 
