@@ -207,3 +207,43 @@ class TestBsuidPassthrough:
 
     def test_phones_match_bsuid_vs_phone(self):
         assert phones_match("BR.1A2B3C", "+5511999999999") is False
+
+
+class TestInternationalNormalization:
+    """International numbers should be correctly normalized via phonenumberslite."""
+
+    def test_us_number_with_country_code(self):
+        assert normalize_phone("+14155551234", default_country="US") == "+14155551234"
+
+    def test_us_local_number(self):
+        """10-digit US number without +1 should get country code added."""
+        assert normalize_phone("4155551234", default_country="US") == "+14155551234"
+
+    def test_uk_number(self):
+        assert normalize_phone("+442079460000") == "+442079460000"
+
+    def test_argentina_mobile(self):
+        """Argentina mobile: +54 9 area subscriber."""
+        assert normalize_phone("+5491155551234") == "+5491155551234"
+
+    def test_india_number(self):
+        assert normalize_phone("+919876543210") == "+919876543210"
+
+    def test_mexico_number(self):
+        assert normalize_phone("+525551234567") == "+525551234567"
+
+
+class TestPhoneValidation:
+    """phonenumberslite should reject garbage inputs."""
+
+    def test_garbage_string_returns_none(self):
+        assert normalize_phone("not-a-phone") is None
+
+    def test_too_short_returns_none(self):
+        assert normalize_phone("+1234") is None
+
+    def test_empty_after_strip_returns_none(self):
+        assert normalize_phone("+++") is None
+
+    def test_letters_only_returns_none(self):
+        assert normalize_phone("abcdef", default_country="US") is None

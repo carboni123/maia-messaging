@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+import phonenumbers
+
 from .brazil import denormalize_brazil_phone, normalize_brazil_phone, phones_match_brazil
 
 _BSUID_PATTERN = re.compile(r"^[A-Za-z]{2}\.[A-Za-z0-9]+$")
@@ -31,8 +33,13 @@ def is_bsuid(value: str | None) -> bool:
 def normalize_phone(phone: str | None, default_country: str = "BR") -> str | None:
     """Normalize a phone number to E.164 format.
 
-    Applies country-specific normalization rules. Currently supports:
-    - Brazil (BR): Adds 9th digit to mobile numbers
+    Applies country-specific normalization rules:
+    - Brazil (BR): Adds 9th digit to mobile numbers (custom logic, runs first)
+    - All other countries: Validated and formatted via phonenumberslite
+
+    Brazil pre-processing runs before phonenumberslite because the library
+    follows current ANATEL rules strictly and won't perform the legacy
+    8-to-9 digit mobile conversion.
 
     Args:
         phone: Raw phone number
@@ -56,26 +63,27 @@ def normalize_phone(phone: str | None, default_country: str = "BR") -> str | Non
     if not candidate:
         return None
 
-    # Extract digits to detect country
     digits = re.sub(r"\D", "", candidate)
     if not digits:
         return None
 
-    # Explicit +55 numbers are always treated as Brazilian.
-    if digits.startswith("55"):
-        return normalize_brazil_phone(f"{whatsapp_prefix}{candidate}")
+    # Brazil pre-processing: apply 8→9 digit fixup BEFORE phonenumberslite.
+    # Runs when digits start with country code 55, or when the number has no
+    # international prefix and the default country is BR.
+    if digits.startswith("55") or (not candidate.startswith("+") and default_country.upper() == "BR"):
+        brazil_result = normalize_brazil_phone(f"{whatsapp_prefix}{candidate}")
+        if brazil_result:
+            return brazil_result
 
-    # International numbers should not be rewritten to Brazil just because
-    # default_country is BR.
-    if candidate.startswith("+"):
-        return f"{whatsapp_prefix}+{digits}"
-
-    # Local numbers (without country code) follow the default country.
-    if default_country.upper() == "BR":
-        return normalize_brazil_phone(f"{whatsapp_prefix}{candidate}")
-
-    # Generic normalization for other countries
-    return f"{whatsapp_prefix}+{digits}"
+    # Generic international normalization via phonenumberslite
+    try:
+        parsed = phonenumbers.parse(candidate, default_country.upper())
+        if not phonenumbers.is_valid_number(parsed):
+            return None
+        formatted = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+        return f"{whatsapp_prefix}{formatted}"
+    except phonenumbers.NumberParseException:
+        return None
 
 
 def normalize_whatsapp_id(whatsapp_id: str | None, default_country: str = "BR") -> str | None:
