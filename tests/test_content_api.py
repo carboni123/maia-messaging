@@ -5,7 +5,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
-from twilio.base.exceptions import TwilioRestException
+from twilio.base.exceptions import TwilioException, TwilioRestException
 
 from messaging import TwilioConfig
 from messaging.content_api import (
@@ -324,6 +324,33 @@ class TestListTemplates:
 
         result = api.list_templates()
         assert result == []
+
+    def test_list_templates_twilio_exception_with_response(self, twilio_config: TwilioConfig):
+        """TwilioException from pagination propagates HTTP status from the response object."""
+        api = _make_api(twilio_config)
+        mock_response = MagicMock(status_code=401)
+        exc = TwilioException("Unable to fetch page", mock_response)
+        api._client.content.v1.content_and_approvals.stream = MagicMock(side_effect=exc)
+
+        with pytest.raises(TwilioContentAPIError) as exc_info:
+            api.list_templates()
+
+        assert exc_info.value.status == 401
+        assert "Unable to fetch page" in str(exc_info.value)
+        assert exc_info.value.__cause__ is exc
+
+    def test_list_templates_twilio_exception_without_response(self, twilio_config: TwilioConfig):
+        """TwilioException with no response object falls back to status=None."""
+        api = _make_api(twilio_config)
+        exc = TwilioException("Page Records can not be deserialized")
+        api._client.content.v1.content_and_approvals.stream = MagicMock(side_effect=exc)
+
+        with pytest.raises(TwilioContentAPIError) as exc_info:
+            api.list_templates()
+
+        assert exc_info.value.status is None
+        assert "Page Records can not be deserialized" in str(exc_info.value)
+        assert exc_info.value.__cause__ is exc
 
 
 # ── TwilioContentAPI.create_quick_reply ──────────────────────────────

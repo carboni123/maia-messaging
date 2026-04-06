@@ -16,7 +16,7 @@ import secrets
 from dataclasses import dataclass
 from typing import Any
 
-from twilio.base.exceptions import TwilioRestException  # type: ignore[import-untyped]
+from twilio.base.exceptions import TwilioException, TwilioRestException  # type: ignore[import-untyped]
 from twilio.http.http_client import TwilioHttpClient  # type: ignore[import-untyped]
 from twilio.rest import Client  # type: ignore[import-untyped]
 from twilio.rest.content.v1.content import ApprovalCreateList  # type: ignore[import-untyped]
@@ -365,6 +365,12 @@ class TwilioContentAPI:
             raise TwilioContentAPIError(
                 str(exc), status=getattr(exc, "status", None), code=getattr(exc, "code", None)
             ) from exc
+        except TwilioException as exc:
+            # Pagination errors (e.g. "Unable to fetch page") carry the
+            # HTTP response as exc.args[1] with a .status_code attribute.
+            resp = exc.args[1] if len(exc.args) > 1 else None
+            status = getattr(resp, "status_code", None)
+            raise TwilioContentAPIError(f"Failed to list templates: {exc}", status=status) from exc
         except Exception as exc:
             raise TwilioContentAPIError(f"Failed to list templates: {exc}") from exc
 
