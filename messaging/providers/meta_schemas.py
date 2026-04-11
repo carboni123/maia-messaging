@@ -17,12 +17,36 @@ __all__ = [
     "MetaTemplateLanguage",
     "MetaTemplatePayload",
     "MetaTemplateMessage",
-    # Outbound: Interactive reply buttons
+    # Outbound: Interactive — shared
+    "MetaInteractiveBody",
+    "MetaInteractiveHeader",
+    "MetaInteractiveFooter",
+    # Outbound: Interactive — reply buttons
     "MetaReplyButton",
     "MetaInteractiveAction",
-    "MetaInteractiveBody",
     "MetaInteractivePayload",
     "MetaInteractiveMessage",
+    # Outbound: Interactive — list
+    "MetaListRow",
+    "MetaListSection",
+    "MetaListAction",
+    "MetaListPayload",
+    "MetaListMessage",
+    # Outbound: Interactive — CTA URL
+    "MetaCTAParameters",
+    "MetaCTAAction",
+    "MetaCTAPayload",
+    "MetaCTAMessage",
+    # Outbound: Interactive — product
+    "MetaProductAction",
+    "MetaProductPayload",
+    "MetaProductMessage",
+    # Outbound: Interactive — product list
+    "MetaProductItem",
+    "MetaProductSection",
+    "MetaProductListAction",
+    "MetaProductListPayload",
+    "MetaProductListMessage",
     # Inbound: Success response
     "MetaMessageContact",
     "MetaMessageEntry",
@@ -95,7 +119,23 @@ class MetaTemplateMessage(BaseModel):
     template: MetaTemplatePayload
 
 
-# ── Outbound: Interactive reply buttons ─────────────────────────────
+# ── Outbound: Interactive — shared building blocks ─────────────────
+
+
+class MetaInteractiveBody(BaseModel):
+    text: str
+
+
+class MetaInteractiveHeader(BaseModel):
+    type: str = "text"
+    text: str
+
+
+class MetaInteractiveFooter(BaseModel):
+    text: str
+
+
+# ── Outbound: Interactive — reply buttons ──────────────────────────
 
 
 class MetaReplyButton(BaseModel):
@@ -105,10 +145,6 @@ class MetaReplyButton(BaseModel):
 
 class MetaInteractiveAction(BaseModel):
     buttons: list[MetaReplyButton]
-
-
-class MetaInteractiveBody(BaseModel):
-    text: str
 
 
 class MetaInteractivePayload(BaseModel):
@@ -122,6 +158,122 @@ class MetaInteractiveMessage(BaseModel):
     to: str
     type: str = "interactive"
     interactive: MetaInteractivePayload
+
+
+# ── Outbound: Interactive — list ───────────────────────────────────
+
+
+class MetaListRow(BaseModel):
+    id: str
+    title: str
+    description: str | None = None
+
+
+class MetaListSection(BaseModel):
+    title: str | None = None
+    rows: list[MetaListRow]
+
+
+class MetaListAction(BaseModel):
+    button: str
+    sections: list[MetaListSection]
+
+
+class MetaListPayload(BaseModel):
+    type: str = "list"
+    header: MetaInteractiveHeader | None = None
+    body: MetaInteractiveBody
+    footer: MetaInteractiveFooter | None = None
+    action: MetaListAction
+
+
+class MetaListMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "interactive"
+    interactive: MetaListPayload
+
+
+# ── Outbound: Interactive — CTA URL ────────────────────────────────
+
+
+class MetaCTAParameters(BaseModel):
+    display_text: str
+    url: str
+
+
+class MetaCTAAction(BaseModel):
+    name: str = "cta_url"
+    parameters: MetaCTAParameters
+
+
+class MetaCTAPayload(BaseModel):
+    type: str = "cta_url"
+    header: MetaInteractiveHeader | None = None
+    body: MetaInteractiveBody
+    footer: MetaInteractiveFooter | None = None
+    action: MetaCTAAction
+
+
+class MetaCTAMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "interactive"
+    interactive: MetaCTAPayload
+
+
+# ── Outbound: Interactive — product ────────────────────────────────
+
+
+class MetaProductAction(BaseModel):
+    catalog_id: str
+    product_retailer_id: str
+
+
+class MetaProductPayload(BaseModel):
+    type: str = "product"
+    body: MetaInteractiveBody
+    footer: MetaInteractiveFooter | None = None
+    action: MetaProductAction
+
+
+class MetaProductMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "interactive"
+    interactive: MetaProductPayload
+
+
+# ── Outbound: Interactive — product list ───────────────────────────
+
+
+class MetaProductItem(BaseModel):
+    product_retailer_id: str
+
+
+class MetaProductSection(BaseModel):
+    title: str
+    product_items: list[MetaProductItem]
+
+
+class MetaProductListAction(BaseModel):
+    catalog_id: str
+    sections: list[MetaProductSection]
+
+
+class MetaProductListPayload(BaseModel):
+    type: str = "product_list"
+    header: MetaInteractiveHeader
+    body: MetaInteractiveBody
+    footer: MetaInteractiveFooter | None = None
+    action: MetaProductListAction
+
+
+class MetaProductListMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "interactive"
+    interactive: MetaProductListPayload
 
 
 # ── Inbound: Success response ────────────────────────────────────────

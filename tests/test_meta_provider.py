@@ -8,8 +8,12 @@ from messaging import (
     DeliveryStatus,
     MetaWhatsAppConfig,
     MetaWhatsAppTemplate,
+    WhatsAppInteractiveCTA,
+    WhatsAppInteractiveList,
     WhatsAppInteractiveReply,
     WhatsAppMedia,
+    WhatsAppProduct,
+    WhatsAppProductList,
     WhatsAppTemplate,
     WhatsAppText,
 )
@@ -479,6 +483,525 @@ class TestSendInteractive:
 
         payload = mock_client.post.call_args.kwargs["json"]
         assert payload["to"] == "BR.1A2B3C4D5E6F"
+
+
+class TestSendList:
+    def test_send_list_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.list123"))
+
+        sections = [
+            {
+                "title": "Section 1",
+                "rows": [
+                    {"id": "1", "title": "Option 1", "description": "Desc"},
+                    {"id": "2", "title": "Option 2", "description": "Desc 2"},
+                ],
+            }
+        ]
+        result = provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="Pick from the list:",
+                button="Menu",
+                sections=sections,
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.list123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "list"
+        assert payload["interactive"]["body"]["text"] == "Pick from the list:"
+        assert payload["interactive"]["action"]["button"] == "Menu"
+        action_sections = payload["interactive"]["action"]["sections"]
+        assert len(action_sections) == 1
+        assert action_sections[0]["title"] == "Section 1"
+        assert len(action_sections[0]["rows"]) == 2
+        assert action_sections[0]["rows"][0]["id"] == "1"
+        assert action_sections[0]["rows"][0]["title"] == "Option 1"
+
+    def test_send_list_with_header_and_footer(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.xxx"))
+
+        sections = [{"title": "S1", "rows": [{"id": "1", "title": "Row 1"}]}]
+        result = provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="Body text",
+                button="Open",
+                sections=sections,
+                header="My Header",
+                footer="My Footer",
+            )
+        )
+
+        assert result.succeeded
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["interactive"]["header"]["text"] == "My Header"
+        assert payload["interactive"]["footer"]["text"] == "My Footer"
+
+    def test_send_list_empty_body_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="   ",
+                button="Menu",
+                sections=[{"title": "S", "rows": [{"id": "1", "title": "R"}]}],
+            )
+        )
+        assert not result.succeeded
+        assert "No message body" in result.error_message
+
+    def test_send_list_no_button_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="Body",
+                button="",
+                sections=[{"title": "S", "rows": [{"id": "1", "title": "R"}]}],
+            )
+        )
+        assert not result.succeeded
+        assert "No button text" in result.error_message
+
+    def test_send_list_no_sections_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="Body",
+                button="Menu",
+                sections=[],
+            )
+        )
+        assert not result.succeeded
+        assert "No sections" in result.error_message
+
+    def test_send_list_no_rows_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="Body",
+                button="Menu",
+                sections=[{"title": "Empty", "rows": []}],
+            )
+        )
+        assert not result.succeeded
+        assert "No rows" in result.error_message
+
+    def test_send_list_too_many_rows_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        rows = [{"id": str(i), "title": f"Row {i}"} for i in range(11)]
+        result = provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="Body",
+                button="Menu",
+                sections=[{"title": "Big", "rows": rows}],
+            )
+        )
+        assert not result.succeeded
+        assert "Too many rows" in result.error_message
+
+    def test_send_list_truncates_body_at_1024(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.xxx"))
+
+        provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="B" * 2000,
+                button="Menu",
+                sections=[{"title": "S", "rows": [{"id": "1", "title": "R"}]}],
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert len(payload["interactive"]["body"]["text"]) == 1024
+
+    def test_send_list_truncates_row_title_at_24(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.xxx"))
+
+        provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="Body",
+                button="Menu",
+                sections=[{"title": "S", "rows": [{"id": "1", "title": "A" * 40}]}],
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        row_title = payload["interactive"]["action"]["sections"][0]["rows"][0]["title"]
+        assert len(row_title) == 24
+
+    def test_send_list_truncates_button_at_20(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.xxx"))
+
+        provider.send(
+            WhatsAppInteractiveList(
+                to="+5511999999999",
+                body="Body",
+                button="B" * 30,
+                sections=[{"title": "S", "rows": [{"id": "1", "title": "R"}]}],
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert len(payload["interactive"]["action"]["button"]) == 20
+
+
+class TestSendCTA:
+    def test_send_cta_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.cta123"))
+
+        result = provider.send(
+            WhatsAppInteractiveCTA(
+                to="+5511999999999",
+                body="Visit our website",
+                display_text="Open Site",
+                url="https://example.com",
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.cta123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "cta_url"
+        action = payload["interactive"]["action"]
+        assert action["name"] == "cta_url"
+        assert action["parameters"]["display_text"] == "Open Site"
+        assert action["parameters"]["url"] == "https://example.com"
+
+    def test_send_cta_with_header_and_footer(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.xxx"))
+
+        result = provider.send(
+            WhatsAppInteractiveCTA(
+                to="+5511999999999",
+                body="Click below",
+                display_text="Visit",
+                url="https://example.com",
+                header="Important",
+                footer="Terms apply",
+            )
+        )
+
+        assert result.succeeded
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["interactive"]["header"]["text"] == "Important"
+        assert payload["interactive"]["footer"]["text"] == "Terms apply"
+
+    def test_send_cta_empty_body_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveCTA(
+                to="+5511999999999",
+                body="   ",
+                display_text="Click",
+                url="https://example.com",
+            )
+        )
+        assert not result.succeeded
+        assert "No message body" in result.error_message
+
+    def test_send_cta_no_url_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveCTA(
+                to="+5511999999999",
+                body="Body",
+                display_text="Click",
+                url="",
+            )
+        )
+        assert not result.succeeded
+        assert "No URL" in result.error_message
+
+    def test_send_cta_no_display_text_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveCTA(
+                to="+5511999999999",
+                body="Body",
+                display_text="",
+                url="https://example.com",
+            )
+        )
+        assert not result.succeeded
+        assert "No display text" in result.error_message
+
+    def test_send_cta_truncates_display_text_at_20(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.xxx"))
+
+        provider.send(
+            WhatsAppInteractiveCTA(
+                to="+5511999999999",
+                body="Body",
+                display_text="D" * 30,
+                url="https://example.com",
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        display_text = payload["interactive"]["action"]["parameters"]["display_text"]
+        assert len(display_text) == 20
+
+
+class TestSendProduct:
+    def test_send_product_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.prod123"))
+
+        result = provider.send(
+            WhatsAppProduct(
+                to="+5511999999999",
+                body="Check out this product",
+                catalog_id="CAT001",
+                product_retailer_id="SKU001",
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.prod123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "product"
+        assert payload["interactive"]["body"]["text"] == "Check out this product"
+        assert payload["interactive"]["action"]["catalog_id"] == "CAT001"
+        assert payload["interactive"]["action"]["product_retailer_id"] == "SKU001"
+
+    def test_send_product_with_footer(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.xxx"))
+
+        result = provider.send(
+            WhatsAppProduct(
+                to="+5511999999999",
+                body="Product info",
+                catalog_id="CAT001",
+                product_retailer_id="SKU001",
+                footer="Limited stock",
+            )
+        )
+
+        assert result.succeeded
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["interactive"]["footer"]["text"] == "Limited stock"
+
+    def test_send_product_empty_body_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppProduct(
+                to="+5511999999999",
+                body="   ",
+                catalog_id="CAT001",
+                product_retailer_id="SKU001",
+            )
+        )
+        assert not result.succeeded
+        assert "No message body" in result.error_message
+
+    def test_send_product_no_catalog_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppProduct(
+                to="+5511999999999",
+                body="Body",
+                catalog_id="",
+                product_retailer_id="SKU001",
+            )
+        )
+        assert not result.succeeded
+        assert "No catalog_id" in result.error_message
+
+    def test_send_product_no_product_id_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppProduct(
+                to="+5511999999999",
+                body="Body",
+                catalog_id="CAT001",
+                product_retailer_id="",
+            )
+        )
+        assert not result.succeeded
+        assert "No product_retailer_id" in result.error_message
+
+
+class TestSendProductList:
+    def test_send_product_list_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.plist123"))
+
+        sections = [
+            {
+                "title": "Category",
+                "product_items": [
+                    {"product_retailer_id": "SKU001"},
+                    {"product_retailer_id": "SKU002"},
+                ],
+            }
+        ]
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="Browse our products",
+                header="Our Catalog",
+                catalog_id="CAT001",
+                sections=sections,
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.plist123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "product_list"
+        assert payload["interactive"]["header"]["text"] == "Our Catalog"
+        assert payload["interactive"]["body"]["text"] == "Browse our products"
+        assert payload["interactive"]["action"]["catalog_id"] == "CAT001"
+        action_sections = payload["interactive"]["action"]["sections"]
+        assert len(action_sections) == 1
+        assert action_sections[0]["title"] == "Category"
+        assert len(action_sections[0]["product_items"]) == 2
+        assert action_sections[0]["product_items"][0]["product_retailer_id"] == "SKU001"
+
+    def test_send_product_list_with_footer(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.xxx"))
+
+        sections = [{"title": "Cat", "product_items": [{"product_retailer_id": "SKU001"}]}]
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="Products",
+                header="Shop",
+                catalog_id="CAT001",
+                sections=sections,
+                footer="Free shipping",
+            )
+        )
+
+        assert result.succeeded
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["interactive"]["footer"]["text"] == "Free shipping"
+
+    def test_send_product_list_empty_body_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="   ",
+                header="Shop",
+                catalog_id="CAT001",
+                sections=[{"title": "C", "product_items": [{"product_retailer_id": "SKU"}]}],
+            )
+        )
+        assert not result.succeeded
+        assert "No message body" in result.error_message
+
+    def test_send_product_list_no_header_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="Body",
+                header="",
+                catalog_id="CAT001",
+                sections=[{"title": "C", "product_items": [{"product_retailer_id": "SKU"}]}],
+            )
+        )
+        assert not result.succeeded
+        assert "No header" in result.error_message
+
+    def test_send_product_list_no_catalog_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="Body",
+                header="Shop",
+                catalog_id="",
+                sections=[{"title": "C", "product_items": [{"product_retailer_id": "SKU"}]}],
+            )
+        )
+        assert not result.succeeded
+        assert "No catalog_id" in result.error_message
+
+    def test_send_product_list_no_sections_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="Body",
+                header="Shop",
+                catalog_id="CAT001",
+                sections=[],
+            )
+        )
+        assert not result.succeeded
+        assert "No sections" in result.error_message
+
+    def test_send_product_list_no_products_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="Body",
+                header="Shop",
+                catalog_id="CAT001",
+                sections=[{"title": "Empty", "product_items": []}],
+            )
+        )
+        assert not result.succeeded
+        assert "No products" in result.error_message
+
+    def test_send_product_list_too_many_products_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        items = [{"product_retailer_id": f"SKU{i:03d}"} for i in range(31)]
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="Body",
+                header="Shop",
+                catalog_id="CAT001",
+                sections=[{"title": "Big", "product_items": items}],
+            )
+        )
+        assert not result.succeeded
+        assert "Too many products" in result.error_message
+
+    def test_send_product_list_too_many_sections_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        sections = [{"title": f"Section {i}", "product_items": [{"product_retailer_id": f"SKU{i}"}]} for i in range(11)]
+        result = provider.send(
+            WhatsAppProductList(
+                to="+5511999999999",
+                body="Body",
+                header="Shop",
+                catalog_id="CAT001",
+                sections=sections,
+            )
+        )
+        assert not result.succeeded
+        assert "Too many sections" in result.error_message
 
 
 class TestErrorHandling:

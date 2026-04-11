@@ -31,10 +31,14 @@ from messaging import (
     TwilioConfig,
     TwilioProvider,
     TwilioSMSConfig,
+    WhatsAppInteractiveCTA,
+    WhatsAppInteractiveList,
     WhatsAppInteractiveReply,
     WhatsAppMedia,
     WhatsAppPersonalConfig,
     WhatsAppPersonalProvider,
+    WhatsAppProduct,
+    WhatsAppProductList,
     WhatsAppTemplate,
     WhatsAppText,
 )
@@ -699,6 +703,136 @@ class TestMetaWhatsAppInteractiveE2E:
             to="+5511999999999",
             body="Pick one",
             buttons=[{"id": "a", "title": "OK"}],
+        )
+        result = gateway.send(msg)
+        assert not result.succeeded
+
+
+class TestMetaWhatsAppInteractiveTypesE2E:
+    """Full flow: new interactive message types → Gateway → MetaWhatsAppProvider → Meta API."""
+
+    def test_list_message_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.list_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppInteractiveList(
+            to="whatsapp:+5511999999999",
+            body="Pick a dish:",
+            button="View options",
+            sections=[
+                {
+                    "title": "Main Courses",
+                    "rows": [
+                        {"id": "pasta", "title": "Pasta", "description": "Fresh homemade pasta"},
+                        {"id": "salad", "title": "Salad"},
+                    ],
+                }
+            ],
+            header="Our Menu",
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.list_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "list"
+
+    def test_cta_message_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.cta_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppInteractiveCTA(
+            to="whatsapp:+5511999999999",
+            body="Visit our site",
+            display_text="Open Website",
+            url="https://example.com",
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.cta_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "cta_url"
+
+    def test_product_message_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.prod_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppProduct(
+            to="whatsapp:+5511999999999",
+            body="Check out this product",
+            catalog_id="CAT123",
+            product_retailer_id="SKU456",
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.prod_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "product"
+
+    def test_product_list_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.prodlist_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppProductList(
+            to="whatsapp:+5511999999999",
+            body="Browse our products",
+            header="Our Catalog",
+            catalog_id="CAT789",
+            sections=[
+                {
+                    "title": "Electronics",
+                    "product_items": [
+                        {"product_retailer_id": "PHONE01"},
+                        {"product_retailer_id": "LAPTOP02"},
+                    ],
+                }
+            ],
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.prodlist_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "product_list"
+
+    def test_list_rejected_by_twilio_provider(self, twilio_provider: TwilioProvider):
+        """Twilio provider does not support interactive list messages."""
+        gateway = MessagingGateway(twilio_provider)
+        msg = WhatsAppInteractiveList(
+            to="whatsapp:+5511999999999",
+            body="Pick one",
+            button="Menu",
+            sections=[{"title": "Options", "rows": [{"id": "a", "title": "A"}]}],
+        )
+        result = gateway.send(msg)
+        assert not result.succeeded
+
+    def test_cta_rejected_by_twilio_provider(self, twilio_provider: TwilioProvider):
+        """Twilio provider does not support interactive CTA messages."""
+        gateway = MessagingGateway(twilio_provider)
+        msg = WhatsAppInteractiveCTA(
+            to="whatsapp:+5511999999999",
+            body="Visit us",
+            display_text="Open",
+            url="https://example.com",
         )
         result = gateway.send(msg)
         assert not result.succeeded

@@ -12,14 +12,33 @@ import httpx
 from pydantic import ValidationError
 
 from messaging.providers.meta_schemas import (
+    MetaCTAAction,
+    MetaCTAMessage,
+    MetaCTAParameters,
+    MetaCTAPayload,
     MetaErrorResponse,
     MetaInteractiveAction,
     MetaInteractiveBody,
+    MetaInteractiveFooter,
+    MetaInteractiveHeader,
     MetaInteractiveMessage,
     MetaInteractivePayload,
+    MetaListAction,
+    MetaListMessage,
+    MetaListPayload,
+    MetaListRow,
+    MetaListSection,
     MetaMediaMessage,
     MetaMediaObject,
     MetaMessageResponse,
+    MetaProductAction,
+    MetaProductItem,
+    MetaProductListAction,
+    MetaProductListMessage,
+    MetaProductListPayload,
+    MetaProductMessage,
+    MetaProductPayload,
+    MetaProductSection,
     MetaReplyButton,
     MetaTemplateComponentPayload,
     MetaTemplateLanguage,
@@ -34,8 +53,12 @@ from messaging.types import (
     Message,
     MetaWhatsAppConfig,
     MetaWhatsAppTemplate,
+    WhatsAppInteractiveCTA,
+    WhatsAppInteractiveList,
     WhatsAppInteractiveReply,
     WhatsAppMedia,
+    WhatsAppProduct,
+    WhatsAppProductList,
     WhatsAppTemplate,
     WhatsAppText,
 )
@@ -134,6 +157,14 @@ class MetaWhatsAppProvider:
             return self._send_template(message)
         if isinstance(message, WhatsAppInteractiveReply):
             return self._send_interactive(message)
+        if isinstance(message, WhatsAppInteractiveList):
+            return self._send_list(message)
+        if isinstance(message, WhatsAppInteractiveCTA):
+            return self._send_cta(message)
+        if isinstance(message, WhatsAppProduct):
+            return self._send_product(message)
+        if isinstance(message, WhatsAppProductList):
+            return self._send_product_list(message)
         if isinstance(message, WhatsAppTemplate):
             return DeliveryResult.fail(
                 "MetaWhatsAppProvider does not support WhatsAppTemplate; use MetaWhatsAppTemplate"
@@ -231,6 +262,142 @@ class MetaWhatsAppProvider:
             ),
         )
         return self._post(msg.model_dump())
+
+    def _send_list(self, message: WhatsAppInteractiveList) -> DeliveryResult:
+        if not message.body or not message.body.strip():
+            return DeliveryResult.fail("No message body provided")
+        if not message.button or not message.button.strip():
+            return DeliveryResult.fail("No button text provided")
+        if not message.sections:
+            return DeliveryResult.fail("No sections provided")
+
+        body = message.body.strip()[:1024]
+        button_text = message.button.strip()[:20]
+
+        rows_total = 0
+        sections: list[MetaListSection] = []
+        for section in message.sections:
+            raw_rows = section.get("rows", [])
+            rows = [
+                MetaListRow(
+                    id=row["id"],
+                    title=row["title"][:24],
+                    description=row.get("description", "")[:72] if row.get("description") else None,
+                )
+                for row in raw_rows
+            ]
+            rows_total += len(rows)
+            sections.append(MetaListSection(title=section.get("title"), rows=rows))
+
+        if rows_total == 0:
+            return DeliveryResult.fail("No rows provided in sections")
+        if rows_total > 10:
+            return DeliveryResult.fail(f"Too many rows ({rows_total}); maximum is 10")
+
+        header = MetaInteractiveHeader(text=message.header[:60]) if message.header else None
+        footer = MetaInteractiveFooter(text=message.footer[:60]) if message.footer else None
+
+        msg = MetaListMessage(
+            to=_normalize_recipient(message.to),
+            interactive=MetaListPayload(
+                header=header,
+                body=MetaInteractiveBody(text=body),
+                footer=footer,
+                action=MetaListAction(button=button_text, sections=sections),
+            ),
+        )
+        return self._post(msg.model_dump(exclude_none=True))
+
+    def _send_cta(self, message: WhatsAppInteractiveCTA) -> DeliveryResult:
+        if not message.body or not message.body.strip():
+            return DeliveryResult.fail("No message body provided")
+        if not message.url or not message.url.strip():
+            return DeliveryResult.fail("No URL provided")
+        if not message.display_text or not message.display_text.strip():
+            return DeliveryResult.fail("No display text provided")
+
+        body = message.body.strip()[:1024]
+        display_text = message.display_text.strip()[:20]
+        url = message.url.strip()[:2000]
+
+        header = MetaInteractiveHeader(text=message.header[:60]) if message.header else None
+        footer = MetaInteractiveFooter(text=message.footer[:60]) if message.footer else None
+
+        msg = MetaCTAMessage(
+            to=_normalize_recipient(message.to),
+            interactive=MetaCTAPayload(
+                header=header,
+                body=MetaInteractiveBody(text=body),
+                footer=footer,
+                action=MetaCTAAction(parameters=MetaCTAParameters(display_text=display_text, url=url)),
+            ),
+        )
+        return self._post(msg.model_dump(exclude_none=True))
+
+    def _send_product(self, message: WhatsAppProduct) -> DeliveryResult:
+        if not message.body or not message.body.strip():
+            return DeliveryResult.fail("No message body provided")
+        if not message.catalog_id:
+            return DeliveryResult.fail("No catalog_id provided")
+        if not message.product_retailer_id:
+            return DeliveryResult.fail("No product_retailer_id provided")
+
+        body = message.body.strip()[:1024]
+        footer = MetaInteractiveFooter(text=message.footer[:60]) if message.footer else None
+
+        msg = MetaProductMessage(
+            to=_normalize_recipient(message.to),
+            interactive=MetaProductPayload(
+                body=MetaInteractiveBody(text=body),
+                footer=footer,
+                action=MetaProductAction(
+                    catalog_id=message.catalog_id,
+                    product_retailer_id=message.product_retailer_id,
+                ),
+            ),
+        )
+        return self._post(msg.model_dump(exclude_none=True))
+
+    def _send_product_list(self, message: WhatsAppProductList) -> DeliveryResult:
+        if not message.body or not message.body.strip():
+            return DeliveryResult.fail("No message body provided")
+        if not message.header or not message.header.strip():
+            return DeliveryResult.fail("No header provided")
+        if not message.catalog_id:
+            return DeliveryResult.fail("No catalog_id provided")
+        if not message.sections:
+            return DeliveryResult.fail("No sections provided")
+
+        body = message.body.strip()[:1024]
+        header_text = message.header.strip()[:60]
+        footer = MetaInteractiveFooter(text=message.footer[:60]) if message.footer else None
+
+        product_total = 0
+        sections: list[MetaProductSection] = []
+        for section in message.sections:
+            items = [
+                MetaProductItem(product_retailer_id=p["product_retailer_id"]) for p in section.get("product_items", [])
+            ]
+            product_total += len(items)
+            sections.append(MetaProductSection(title=section["title"], product_items=items))
+
+        if product_total == 0:
+            return DeliveryResult.fail("No products provided in sections")
+        if product_total > 30:
+            return DeliveryResult.fail(f"Too many products ({product_total}); maximum is 30")
+        if len(sections) > 10:
+            return DeliveryResult.fail(f"Too many sections ({len(sections)}); maximum is 10")
+
+        msg = MetaProductListMessage(
+            to=_normalize_recipient(message.to),
+            interactive=MetaProductListPayload(
+                header=MetaInteractiveHeader(text=header_text),
+                body=MetaInteractiveBody(text=body),
+                footer=footer,
+                action=MetaProductListAction(catalog_id=message.catalog_id, sections=sections),
+            ),
+        )
+        return self._post(msg.model_dump(exclude_none=True))
 
     def _post(self, payload: dict[str, Any]) -> DeliveryResult:
         """Make a POST request to the Meta WhatsApp Cloud API."""

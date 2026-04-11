@@ -18,9 +18,13 @@ __all__ = [
     "TelegramText",
     "TwilioConfig",
     "TwilioSMSConfig",
+    "WhatsAppInteractiveCTA",
+    "WhatsAppInteractiveList",
     "WhatsAppInteractiveReply",
     "WhatsAppMedia",
     "WhatsAppPersonalConfig",
+    "WhatsAppProduct",
+    "WhatsAppProductList",
     "WhatsAppTemplate",
     "WhatsAppText",
 ]
@@ -182,7 +186,81 @@ class WhatsAppInteractiveReply:
     buttons: list[dict[str, str]] = field(default_factory=list)
 
 
-Message = WhatsAppText | WhatsAppMedia | WhatsAppTemplate | MetaWhatsAppTemplate | WhatsAppInteractiveReply
+@dataclass(frozen=True, slots=True)
+class WhatsAppInteractiveList:
+    """A WhatsApp interactive list message (Meta Cloud API, session-only).
+
+    Presents a menu button that expands into sections with selectable rows.
+    Up to 10 rows total across all sections. Each row has an ``id`` and
+    ``title`` (max 24 chars), with an optional ``description`` (max 72 chars).
+
+    ``button`` is the menu trigger text (max 20 chars).
+    """
+
+    to: str
+    body: str
+    button: str
+    sections: list[dict[str, Any]]
+    header: str | None = None
+    footer: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WhatsAppInteractiveCTA:
+    """A WhatsApp interactive call-to-action URL button (Meta Cloud API, session-only).
+
+    Shows a message with a tappable button that opens a URL.
+    """
+
+    to: str
+    body: str
+    display_text: str
+    url: str
+    header: str | None = None
+    footer: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WhatsAppProduct:
+    """A WhatsApp single product message (Meta Cloud API, session-only).
+
+    Displays a product from a connected Meta catalog.
+    """
+
+    to: str
+    body: str
+    catalog_id: str
+    product_retailer_id: str
+    footer: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WhatsAppProductList:
+    """A WhatsApp product list message (Meta Cloud API, session-only).
+
+    Displays multiple products from a connected Meta catalog,
+    organized in sections. Requires a header.
+    """
+
+    to: str
+    body: str
+    header: str
+    catalog_id: str
+    sections: list[dict[str, Any]]
+    footer: str | None = None
+
+
+Message = (
+    WhatsAppText
+    | WhatsAppMedia
+    | WhatsAppTemplate
+    | MetaWhatsAppTemplate
+    | WhatsAppInteractiveReply
+    | WhatsAppInteractiveList
+    | WhatsAppInteractiveCTA
+    | WhatsAppProduct
+    | WhatsAppProductList
+)
 
 
 # ── Email message types ──────────────────────────────────────────────

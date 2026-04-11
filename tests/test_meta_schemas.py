@@ -176,6 +176,235 @@ class TestMetaInteractiveModels:
         assert btn.type == "reply"
 
 
+class TestMetaListModels:
+    def test_list_message_serializes_correctly(self):
+        from messaging.providers.meta_schemas import (
+            MetaInteractiveBody,
+            MetaInteractiveFooter,
+            MetaInteractiveHeader,
+            MetaListAction,
+            MetaListMessage,
+            MetaListPayload,
+            MetaListRow,
+            MetaListSection,
+        )
+
+        msg = MetaListMessage(
+            to="5511999999999",
+            interactive=MetaListPayload(
+                header=MetaInteractiveHeader(text="Our Menu"),
+                body=MetaInteractiveBody(text="Pick a dish:"),
+                footer=MetaInteractiveFooter(text="Powered by Maia"),
+                action=MetaListAction(
+                    button="View options",
+                    sections=[
+                        MetaListSection(
+                            title="Main Courses",
+                            rows=[
+                                MetaListRow(id="pasta", title="Pasta", description="Fresh homemade pasta"),
+                                MetaListRow(id="salad", title="Salad"),
+                            ],
+                        )
+                    ],
+                ),
+            ),
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert payload == {
+            "messaging_product": "whatsapp",
+            "to": "5511999999999",
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "header": {"type": "text", "text": "Our Menu"},
+                "body": {"text": "Pick a dish:"},
+                "footer": {"text": "Powered by Maia"},
+                "action": {
+                    "button": "View options",
+                    "sections": [
+                        {
+                            "title": "Main Courses",
+                            "rows": [
+                                {"id": "pasta", "title": "Pasta", "description": "Fresh homemade pasta"},
+                                {"id": "salad", "title": "Salad"},
+                            ],
+                        }
+                    ],
+                },
+            },
+        }
+
+    def test_list_payload_defaults(self):
+        from messaging.providers.meta_schemas import (
+            MetaInteractiveBody,
+            MetaListAction,
+            MetaListPayload,
+            MetaListRow,
+            MetaListSection,
+        )
+
+        payload = MetaListPayload(
+            body=MetaInteractiveBody(text="hi"),
+            action=MetaListAction(
+                button="Menu",
+                sections=[MetaListSection(rows=[MetaListRow(id="1", title="One")])],
+            ),
+        )
+        assert payload.type == "list"
+
+    def test_list_row_optional_description(self):
+        from messaging.providers.meta_schemas import MetaListRow
+
+        row = MetaListRow(id="r1", title="Row 1")
+        assert row.description is None
+
+
+class TestMetaCTAModels:
+    def test_cta_message_serializes_correctly(self):
+        from messaging.providers.meta_schemas import (
+            MetaCTAAction,
+            MetaCTAMessage,
+            MetaCTAParameters,
+            MetaCTAPayload,
+            MetaInteractiveBody,
+        )
+
+        msg = MetaCTAMessage(
+            to="5511999999999",
+            interactive=MetaCTAPayload(
+                body=MetaInteractiveBody(text="Visit our site"),
+                action=MetaCTAAction(
+                    parameters=MetaCTAParameters(
+                        display_text="Open Website",
+                        url="https://example.com",
+                    ),
+                ),
+            ),
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert payload == {
+            "messaging_product": "whatsapp",
+            "to": "5511999999999",
+            "type": "interactive",
+            "interactive": {
+                "type": "cta_url",
+                "body": {"text": "Visit our site"},
+                "action": {
+                    "name": "cta_url",
+                    "parameters": {
+                        "display_text": "Open Website",
+                        "url": "https://example.com",
+                    },
+                },
+            },
+        }
+
+    def test_cta_action_default_name(self):
+        from messaging.providers.meta_schemas import MetaCTAAction, MetaCTAParameters
+
+        action = MetaCTAAction(
+            parameters=MetaCTAParameters(display_text="Click", url="https://example.com"),
+        )
+        assert action.name == "cta_url"
+
+
+class TestMetaProductModels:
+    def test_product_message_serializes_correctly(self):
+        from messaging.providers.meta_schemas import (
+            MetaInteractiveBody,
+            MetaProductAction,
+            MetaProductMessage,
+            MetaProductPayload,
+        )
+
+        msg = MetaProductMessage(
+            to="5511999999999",
+            interactive=MetaProductPayload(
+                body=MetaInteractiveBody(text="Check out this product"),
+                action=MetaProductAction(
+                    catalog_id="CAT123",
+                    product_retailer_id="SKU456",
+                ),
+            ),
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert payload == {
+            "messaging_product": "whatsapp",
+            "to": "5511999999999",
+            "type": "interactive",
+            "interactive": {
+                "type": "product",
+                "body": {"text": "Check out this product"},
+                "action": {
+                    "catalog_id": "CAT123",
+                    "product_retailer_id": "SKU456",
+                },
+            },
+        }
+
+
+class TestMetaProductListModels:
+    def test_product_list_message_serializes_correctly(self):
+        from messaging.providers.meta_schemas import (
+            MetaInteractiveBody,
+            MetaInteractiveHeader,
+            MetaProductItem,
+            MetaProductListAction,
+            MetaProductListMessage,
+            MetaProductListPayload,
+            MetaProductSection,
+        )
+
+        msg = MetaProductListMessage(
+            to="5511999999999",
+            interactive=MetaProductListPayload(
+                header=MetaInteractiveHeader(text="Our Catalog"),
+                body=MetaInteractiveBody(text="Browse our products"),
+                action=MetaProductListAction(
+                    catalog_id="CAT789",
+                    sections=[
+                        MetaProductSection(
+                            title="Electronics",
+                            product_items=[
+                                MetaProductItem(product_retailer_id="PHONE01"),
+                                MetaProductItem(product_retailer_id="LAPTOP02"),
+                            ],
+                        )
+                    ],
+                ),
+            ),
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert payload == {
+            "messaging_product": "whatsapp",
+            "to": "5511999999999",
+            "type": "interactive",
+            "interactive": {
+                "type": "product_list",
+                "header": {"type": "text", "text": "Our Catalog"},
+                "body": {"text": "Browse our products"},
+                "action": {
+                    "catalog_id": "CAT789",
+                    "sections": [
+                        {
+                            "title": "Electronics",
+                            "product_items": [
+                                {"product_retailer_id": "PHONE01"},
+                                {"product_retailer_id": "LAPTOP02"},
+                            ],
+                        }
+                    ],
+                },
+            },
+        }
+
+    def test_product_item_minimal(self):
+        from messaging.providers.meta_schemas import MetaProductItem
+
+        item = MetaProductItem(product_retailer_id="SKU001")
+        assert item.product_retailer_id == "SKU001"
+
+
 class TestMetaResponseModels:
     def test_success_response_parses(self):
         data = {
