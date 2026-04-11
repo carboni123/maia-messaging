@@ -31,14 +31,18 @@ from messaging import (
     TwilioConfig,
     TwilioProvider,
     TwilioSMSConfig,
+    WhatsAppContacts,
     WhatsAppInteractiveCTA,
     WhatsAppInteractiveList,
     WhatsAppInteractiveReply,
+    WhatsAppLocation,
     WhatsAppMedia,
     WhatsAppPersonalConfig,
     WhatsAppPersonalProvider,
     WhatsAppProduct,
     WhatsAppProductList,
+    WhatsAppReaction,
+    WhatsAppSticker,
     WhatsAppTemplate,
     WhatsAppText,
 )
@@ -833,6 +837,120 @@ class TestMetaWhatsAppInteractiveTypesE2E:
             body="Visit us",
             display_text="Open",
             url="https://example.com",
+        )
+        result = gateway.send(msg)
+        assert not result.succeeded
+
+
+class TestMetaWhatsAppNewMessageTypesE2E:
+    """Full flow: new message types → Gateway → MetaWhatsAppProvider → Meta API."""
+
+    def test_location_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.loc_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppLocation(
+            to="+5511999999999",
+            latitude=-23.55,
+            longitude=-46.63,
+            name="Office",
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.loc_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "location"
+        assert payload["location"]["latitude"] == -23.55
+        assert payload["location"]["longitude"] == -46.63
+        assert payload["location"]["name"] == "Office"
+
+    def test_contacts_reach_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.contact_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppContacts(
+            to="+5511999999999",
+            contacts=[
+                {
+                    "name": {"formatted_name": "John Doe", "first_name": "John"},
+                    "phones": [{"phone": "+5511999999999", "type": "CELL"}],
+                }
+            ],
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.contact_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "contacts"
+        assert len(payload["contacts"]) == 1
+        assert payload["contacts"][0]["name"]["formatted_name"] == "John Doe"
+
+    def test_reaction_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.react_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppReaction(
+            to="+5511999999999",
+            message_id="wamid.xxx",
+            emoji="\u2705",
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.react_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "reaction"
+        assert payload["reaction"]["message_id"] == "wamid.xxx"
+        assert payload["reaction"]["emoji"] == "\u2705"
+
+    def test_sticker_reaches_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.sticker_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppSticker(
+            to="+5511999999999",
+            sticker="https://example.com/s.webp",
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.sticker_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "sticker"
+        assert payload["sticker"]["link"] == "https://example.com/s.webp"
+
+    def test_location_rejected_by_twilio_provider(self, twilio_provider: TwilioProvider):
+        """Twilio provider does not support location messages."""
+        gateway = MessagingGateway(twilio_provider)
+        msg = WhatsAppLocation(
+            to="whatsapp:+5511999999999",
+            latitude=-23.55,
+            longitude=-46.63,
+        )
+        result = gateway.send(msg)
+        assert not result.succeeded
+
+    def test_reaction_rejected_by_twilio_provider(self, twilio_provider: TwilioProvider):
+        """Twilio provider does not support reaction messages."""
+        gateway = MessagingGateway(twilio_provider)
+        msg = WhatsAppReaction(
+            to="whatsapp:+5511999999999",
+            message_id="wamid.xxx",
+            emoji="\U0001f44d",
         )
         result = gateway.send(msg)
         assert not result.succeeded

@@ -47,6 +47,23 @@ __all__ = [
     "MetaProductListAction",
     "MetaProductListPayload",
     "MetaProductListMessage",
+    # Outbound: Location
+    "MetaLocationCoordinates",
+    "MetaLocationMessage",
+    # Outbound: Contacts
+    "MetaContactName",
+    "MetaContactPhone",
+    "MetaContactEmail",
+    "MetaContactOrg",
+    "MetaContactUrl",
+    "MetaContact",
+    "MetaContactsMessage",
+    # Outbound: Reaction
+    "MetaReactionPayload",
+    "MetaReactionMessage",
+    # Outbound: Sticker
+    "MetaStickerObject",
+    "MetaStickerMessage",
     # Inbound: Success response
     "MetaMessageContact",
     "MetaMessageEntry",
@@ -274,6 +291,98 @@ class MetaProductListMessage(BaseModel):
     to: str
     type: str = "interactive"
     interactive: MetaProductListPayload
+
+
+# ── Outbound: Location ─────────────────────────────────────────────
+
+
+class MetaLocationCoordinates(BaseModel):
+    latitude: float
+    longitude: float
+    name: str | None = None
+    address: str | None = None
+
+
+class MetaLocationMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "location"
+    location: MetaLocationCoordinates
+
+
+# ── Outbound: Contacts ─────────────────────────────────────────────
+
+
+class MetaContactName(BaseModel):
+    formatted_name: str
+    first_name: str | None = None
+    last_name: str | None = None
+
+
+class MetaContactPhone(BaseModel):
+    phone: str
+    type: str | None = None  # "CELL", "MAIN", "HOME", "WORK", etc.
+
+
+class MetaContactEmail(BaseModel):
+    email: str
+    type: str | None = None  # "HOME", "WORK", etc.
+
+
+class MetaContactOrg(BaseModel):
+    company: str | None = None
+    department: str | None = None
+    title: str | None = None
+
+
+class MetaContactUrl(BaseModel):
+    url: str
+    type: str | None = None  # "HOME", "WORK", etc.
+
+
+class MetaContact(BaseModel):
+    name: MetaContactName
+    phones: list[MetaContactPhone] | None = None
+    emails: list[MetaContactEmail] | None = None
+    org: MetaContactOrg | None = None
+    urls: list[MetaContactUrl] | None = None
+
+
+class MetaContactsMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "contacts"
+    contacts: list[MetaContact]
+
+
+# ── Outbound: Reaction ─────────────────────────────────────────────
+
+
+class MetaReactionPayload(BaseModel):
+    message_id: str
+    emoji: str
+
+
+class MetaReactionMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "reaction"
+    reaction: MetaReactionPayload
+
+
+# ── Outbound: Sticker ──────────────────────────────────────────────
+
+
+class MetaStickerObject(BaseModel):
+    link: str | None = None
+    id: str | None = None
+
+
+class MetaStickerMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "sticker"
+    sticker: MetaStickerObject
 
 
 # ── Inbound: Success response ────────────────────────────────────────

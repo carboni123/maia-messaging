@@ -18,13 +18,17 @@ __all__ = [
     "TelegramText",
     "TwilioConfig",
     "TwilioSMSConfig",
+    "WhatsAppContacts",
     "WhatsAppInteractiveCTA",
     "WhatsAppInteractiveList",
     "WhatsAppInteractiveReply",
+    "WhatsAppLocation",
     "WhatsAppMedia",
     "WhatsAppPersonalConfig",
     "WhatsAppProduct",
     "WhatsAppProductList",
+    "WhatsAppReaction",
+    "WhatsAppSticker",
     "WhatsAppTemplate",
     "WhatsAppText",
 ]
@@ -250,6 +254,57 @@ class WhatsAppProductList:
     footer: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class WhatsAppLocation:
+    """A WhatsApp location message (Meta Cloud API, session-only).
+
+    Sends a map pin with coordinates and optional name/address.
+    """
+
+    to: str
+    latitude: float
+    longitude: float
+    name: str | None = None
+    address: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WhatsAppContacts:
+    """A WhatsApp contacts message (Meta Cloud API, session-only).
+
+    Sends one or more vCard-style contacts. Each contact is a dict
+    following the Meta Cloud API contacts schema with fields like
+    ``name`` (required), ``phones``, ``emails``, ``org``, ``urls``.
+    """
+
+    to: str
+    contacts: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class WhatsAppReaction:
+    """A WhatsApp reaction message (Meta Cloud API, session-only).
+
+    Reacts to an existing message with an emoji. Send an empty
+    ``emoji`` string to remove a previous reaction.
+    """
+
+    to: str
+    message_id: str  # wamid of the message to react to
+    emoji: str  # single emoji character, or "" to remove
+
+
+@dataclass(frozen=True, slots=True)
+class WhatsAppSticker:
+    """A WhatsApp sticker message (Meta Cloud API, session-only).
+
+    Sends a .webp sticker via URL or media ID.
+    """
+
+    to: str
+    sticker: str  # URL or media ID
+
+
 Message = (
     WhatsAppText
     | WhatsAppMedia
@@ -260,6 +315,10 @@ Message = (
     | WhatsAppInteractiveCTA
     | WhatsAppProduct
     | WhatsAppProductList
+    | WhatsAppLocation
+    | WhatsAppContacts
+    | WhatsAppReaction
+    | WhatsAppSticker
 )
 
 

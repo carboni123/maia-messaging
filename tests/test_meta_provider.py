@@ -8,12 +8,16 @@ from messaging import (
     DeliveryStatus,
     MetaWhatsAppConfig,
     MetaWhatsAppTemplate,
+    WhatsAppContacts,
     WhatsAppInteractiveCTA,
     WhatsAppInteractiveList,
     WhatsAppInteractiveReply,
+    WhatsAppLocation,
     WhatsAppMedia,
     WhatsAppProduct,
     WhatsAppProductList,
+    WhatsAppReaction,
+    WhatsAppSticker,
     WhatsAppTemplate,
     WhatsAppText,
 )
@@ -1002,6 +1006,269 @@ class TestSendProductList:
         )
         assert not result.succeeded
         assert "Too many sections" in result.error_message
+
+
+class TestSendLocation:
+    def test_send_location_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.loc123"))
+
+        result = provider.send(
+            WhatsAppLocation(
+                to="+5511999999999",
+                latitude=-23.5505,
+                longitude=-46.6333,
+                name="Sao Paulo",
+                address="Av Paulista, 1000",
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.loc123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "location"
+        assert payload["location"]["latitude"] == -23.5505
+        assert payload["location"]["longitude"] == -46.6333
+        assert payload["location"]["name"] == "Sao Paulo"
+        assert payload["location"]["address"] == "Av Paulista, 1000"
+
+    def test_send_location_without_name_address(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.loc456"))
+
+        result = provider.send(
+            WhatsAppLocation(
+                to="+5511999999999",
+                latitude=-23.5505,
+                longitude=-46.6333,
+            )
+        )
+
+        assert result.succeeded
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "location"
+        assert payload["location"]["latitude"] == -23.5505
+        assert payload["location"]["longitude"] == -46.6333
+        assert "name" not in payload["location"]
+        assert "address" not in payload["location"]
+
+    def test_send_location_strips_whatsapp_prefix(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.loc789"))
+
+        provider.send(
+            WhatsAppLocation(
+                to="whatsapp:+5511999999999",
+                latitude=-23.5505,
+                longitude=-46.6333,
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["to"] == "5511999999999"
+
+
+class TestSendContacts:
+    def test_send_contacts_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.cnt123"))
+
+        contacts = [
+            {
+                "name": {"formatted_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+                "phones": [{"phone": "+5511999999999", "type": "CELL"}],
+                "emails": [{"email": "john@example.com", "type": "WORK"}],
+            }
+        ]
+        result = provider.send(
+            WhatsAppContacts(
+                to="+5511999999999",
+                contacts=contacts,
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.cnt123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "contacts"
+        assert len(payload["contacts"]) == 1
+        assert payload["contacts"][0]["name"]["formatted_name"] == "John Doe"
+        assert payload["contacts"][0]["phones"][0]["phone"] == "+5511999999999"
+        assert payload["contacts"][0]["emails"][0]["email"] == "john@example.com"
+
+    def test_send_contacts_with_org_and_urls(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.cnt456"))
+
+        contacts = [
+            {
+                "name": {"formatted_name": "Jane Smith"},
+                "org": {"company": "Acme Corp"},
+                "urls": [{"url": "https://acme.com", "type": "WORK"}],
+            }
+        ]
+        result = provider.send(
+            WhatsAppContacts(
+                to="+5511999999999",
+                contacts=contacts,
+            )
+        )
+
+        assert result.succeeded
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "contacts"
+        assert payload["contacts"][0]["org"]["company"] == "Acme Corp"
+        assert payload["contacts"][0]["urls"][0]["url"] == "https://acme.com"
+
+    def test_send_contacts_no_contacts_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppContacts(
+                to="+5511999999999",
+                contacts=[],
+            )
+        )
+        assert not result.succeeded
+        assert "No contacts" in result.error_message
+
+    def test_send_contacts_multiple(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.cnt789"))
+
+        contacts = [
+            {
+                "name": {"formatted_name": "John Doe", "first_name": "John", "last_name": "Doe"},
+                "phones": [{"phone": "+5511999999999", "type": "CELL"}],
+                "emails": [{"email": "john@example.com", "type": "WORK"}],
+            },
+            {
+                "name": {"formatted_name": "Jane Smith", "first_name": "Jane", "last_name": "Smith"},
+                "phones": [{"phone": "+5511888888888", "type": "CELL"}],
+                "emails": [{"email": "jane@example.com", "type": "WORK"}],
+            },
+        ]
+        result = provider.send(
+            WhatsAppContacts(
+                to="+5511999999999",
+                contacts=contacts,
+            )
+        )
+
+        assert result.succeeded
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "contacts"
+        assert len(payload["contacts"]) == 2
+        assert payload["contacts"][0]["name"]["formatted_name"] == "John Doe"
+        assert payload["contacts"][1]["name"]["formatted_name"] == "Jane Smith"
+
+
+class TestSendReaction:
+    def test_send_reaction_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.react123"))
+
+        result = provider.send(
+            WhatsAppReaction(
+                to="+5511999999999",
+                message_id="wamid.original123",
+                emoji="\U0001f44d",
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.react123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "reaction"
+        assert payload["reaction"]["message_id"] == "wamid.original123"
+        assert payload["reaction"]["emoji"] == "\U0001f44d"
+
+    def test_send_reaction_remove(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.react456"))
+
+        result = provider.send(
+            WhatsAppReaction(
+                to="+5511999999999",
+                message_id="wamid.original123",
+                emoji="",
+            )
+        )
+
+        assert result.succeeded
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "reaction"
+        assert payload["reaction"]["message_id"] == "wamid.original123"
+        assert payload["reaction"]["emoji"] == ""
+
+    def test_send_reaction_no_message_id_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppReaction(
+                to="+5511999999999",
+                message_id="",
+                emoji="\U0001f44d",
+            )
+        )
+        assert not result.succeeded
+        assert "No message_id" in result.error_message
+
+
+class TestSendSticker:
+    def test_send_sticker_url_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.stk123"))
+
+        result = provider.send(
+            WhatsAppSticker(
+                to="+5511999999999",
+                sticker="https://example.com/sticker.webp",
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.stk123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "sticker"
+        assert payload["sticker"]["link"] == "https://example.com/sticker.webp"
+
+    def test_send_sticker_media_id_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.stk456"))
+
+        result = provider.send(
+            WhatsAppSticker(
+                to="+5511999999999",
+                sticker="media_id_123",
+            )
+        )
+
+        assert result.succeeded
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["type"] == "sticker"
+        assert payload["sticker"]["id"] == "media_id_123"
+        assert "link" not in payload["sticker"]
+
+    def test_send_sticker_empty_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppSticker(
+                to="+5511999999999",
+                sticker="",
+            )
+        )
+        assert not result.succeeded
+        assert "No sticker" in result.error_message
 
 
 class TestErrorHandling:

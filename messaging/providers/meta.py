@@ -39,7 +39,20 @@ from messaging.providers.meta_schemas import (
     MetaProductMessage,
     MetaProductPayload,
     MetaProductSection,
+    MetaContactsMessage,
+    MetaContact,
+    MetaContactEmail,
+    MetaContactName,
+    MetaContactOrg,
+    MetaContactPhone,
+    MetaContactUrl,
+    MetaLocationCoordinates,
+    MetaLocationMessage,
+    MetaReactionMessage,
+    MetaReactionPayload,
     MetaReplyButton,
+    MetaStickerMessage,
+    MetaStickerObject,
     MetaTemplateComponentPayload,
     MetaTemplateLanguage,
     MetaTemplateMessage,
@@ -53,12 +66,16 @@ from messaging.types import (
     Message,
     MetaWhatsAppConfig,
     MetaWhatsAppTemplate,
+    WhatsAppContacts,
     WhatsAppInteractiveCTA,
     WhatsAppInteractiveList,
     WhatsAppInteractiveReply,
+    WhatsAppLocation,
     WhatsAppMedia,
     WhatsAppProduct,
     WhatsAppProductList,
+    WhatsAppReaction,
+    WhatsAppSticker,
     WhatsAppTemplate,
     WhatsAppText,
 )
@@ -165,6 +182,14 @@ class MetaWhatsAppProvider:
             return self._send_product(message)
         if isinstance(message, WhatsAppProductList):
             return self._send_product_list(message)
+        if isinstance(message, WhatsAppLocation):
+            return self._send_location(message)
+        if isinstance(message, WhatsAppContacts):
+            return self._send_contacts(message)
+        if isinstance(message, WhatsAppReaction):
+            return self._send_reaction(message)
+        if isinstance(message, WhatsAppSticker):
+            return self._send_sticker(message)
         if isinstance(message, WhatsAppTemplate):
             return DeliveryResult.fail(
                 "MetaWhatsAppProvider does not support WhatsAppTemplate; use MetaWhatsAppTemplate"
@@ -396,6 +421,84 @@ class MetaWhatsAppProvider:
                 footer=footer,
                 action=MetaProductListAction(catalog_id=message.catalog_id, sections=sections),
             ),
+        )
+        return self._post(msg.model_dump(exclude_none=True))
+
+    def _send_location(self, message: WhatsAppLocation) -> DeliveryResult:
+        msg = MetaLocationMessage(
+            to=_normalize_recipient(message.to),
+            location=MetaLocationCoordinates(
+                latitude=message.latitude,
+                longitude=message.longitude,
+                name=message.name,
+                address=message.address,
+            ),
+        )
+        return self._post(msg.model_dump(exclude_none=True))
+
+    def _send_contacts(self, message: WhatsAppContacts) -> DeliveryResult:
+        if not message.contacts:
+            return DeliveryResult.fail("No contacts provided")
+
+        meta_contacts: list[MetaContact] = []
+        for contact in message.contacts:
+            name_data = contact.get("name", {})
+            name = MetaContactName(
+                formatted_name=name_data.get("formatted_name", ""),
+                first_name=name_data.get("first_name"),
+                last_name=name_data.get("last_name"),
+            )
+            phones = (
+                [MetaContactPhone(phone=p["phone"], type=p.get("type")) for p in contact["phones"]]
+                if contact.get("phones")
+                else None
+            )
+            emails = (
+                [MetaContactEmail(email=e["email"], type=e.get("type")) for e in contact["emails"]]
+                if contact.get("emails")
+                else None
+            )
+            org = MetaContactOrg(**contact["org"]) if contact.get("org") else None
+            urls = (
+                [MetaContactUrl(url=u["url"], type=u.get("type")) for u in contact["urls"]]
+                if contact.get("urls")
+                else None
+            )
+            meta_contacts.append(MetaContact(name=name, phones=phones, emails=emails, org=org, urls=urls))
+
+        msg = MetaContactsMessage(
+            to=_normalize_recipient(message.to),
+            contacts=meta_contacts,
+        )
+        return self._post(msg.model_dump(exclude_none=True))
+
+    def _send_reaction(self, message: WhatsAppReaction) -> DeliveryResult:
+        if not message.message_id:
+            return DeliveryResult.fail("No message_id provided")
+
+        msg = MetaReactionMessage(
+            to=_normalize_recipient(message.to),
+            reaction=MetaReactionPayload(
+                message_id=message.message_id,
+                emoji=message.emoji,
+            ),
+        )
+        return self._post(msg.model_dump())
+
+    def _send_sticker(self, message: WhatsAppSticker) -> DeliveryResult:
+        if not message.sticker:
+            return DeliveryResult.fail("No sticker provided")
+
+        # Determine if it's a URL or a media ID
+        sticker_value = message.sticker.strip()
+        if sticker_value.startswith(("http://", "https://")):
+            sticker_obj = MetaStickerObject(link=sticker_value)
+        else:
+            sticker_obj = MetaStickerObject(id=sticker_value)
+
+        msg = MetaStickerMessage(
+            to=_normalize_recipient(message.to),
+            sticker=sticker_obj,
         )
         return self._post(msg.model_dump(exclude_none=True))
 

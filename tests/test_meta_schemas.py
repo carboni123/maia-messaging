@@ -405,6 +405,125 @@ class TestMetaProductListModels:
         assert item.product_retailer_id == "SKU001"
 
 
+class TestMetaLocationModels:
+    def test_location_message_serializes_correctly(self):
+        from messaging.providers.meta_schemas import MetaLocationCoordinates, MetaLocationMessage
+
+        msg = MetaLocationMessage(
+            to="5511999999999",
+            location=MetaLocationCoordinates(
+                latitude=-23.5505, longitude=-46.6333, name="São Paulo", address="SP, Brazil"
+            ),
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["type"] == "location"
+        assert payload["location"]["latitude"] == -23.5505
+        assert payload["location"]["longitude"] == -46.6333
+        assert payload["location"]["name"] == "São Paulo"
+        assert payload["location"]["address"] == "SP, Brazil"
+
+    def test_location_without_optional_fields(self):
+        from messaging.providers.meta_schemas import MetaLocationCoordinates, MetaLocationMessage
+
+        msg = MetaLocationMessage(
+            to="123",
+            location=MetaLocationCoordinates(latitude=0.0, longitude=0.0),
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert "name" not in payload["location"]
+        assert "address" not in payload["location"]
+
+
+class TestMetaContactsModels:
+    def test_contacts_message_serializes_correctly(self):
+        from messaging.providers.meta_schemas import (
+            MetaContact,
+            MetaContactEmail,
+            MetaContactName,
+            MetaContactOrg,
+            MetaContactPhone,
+            MetaContactsMessage,
+            MetaContactUrl,
+        )
+
+        msg = MetaContactsMessage(
+            to="5511999999999",
+            contacts=[
+                MetaContact(
+                    name=MetaContactName(formatted_name="John Doe", first_name="John"),
+                    phones=[MetaContactPhone(phone="+5511999", type="CELL")],
+                    emails=[MetaContactEmail(email="john@example.com", type="WORK")],
+                    org=MetaContactOrg(company="Acme"),
+                    urls=[MetaContactUrl(url="https://example.com")],
+                )
+            ],
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert payload["type"] == "contacts"
+        contact = payload["contacts"][0]
+        assert contact["name"]["formatted_name"] == "John Doe"
+        assert contact["phones"][0]["phone"] == "+5511999"
+        assert contact["emails"][0]["email"] == "john@example.com"
+        assert contact["org"]["company"] == "Acme"
+        assert contact["urls"][0]["url"] == "https://example.com"
+
+    def test_contact_minimal(self):
+        from messaging.providers.meta_schemas import MetaContact, MetaContactName, MetaContactsMessage
+
+        msg = MetaContactsMessage(
+            to="123",
+            contacts=[MetaContact(name=MetaContactName(formatted_name="Jane"))],
+        )
+        payload = msg.model_dump(exclude_none=True)
+        contact = payload["contacts"][0]
+        assert "name" in contact
+        assert "phones" not in contact
+        assert "emails" not in contact
+        assert "org" not in contact
+        assert "urls" not in contact
+
+
+class TestMetaReactionModels:
+    def test_reaction_message_serializes_correctly(self):
+        from messaging.providers.meta_schemas import MetaReactionMessage, MetaReactionPayload
+
+        msg = MetaReactionMessage(
+            to="5511999999999",
+            reaction=MetaReactionPayload(message_id="wamid.xxx", emoji="\U0001f44d"),
+        )
+        payload = msg.model_dump()
+        assert payload["type"] == "reaction"
+        assert payload["reaction"]["message_id"] == "wamid.xxx"
+        assert payload["reaction"]["emoji"] == "\U0001f44d"
+
+
+class TestMetaStickerModels:
+    def test_sticker_message_with_link(self):
+        from messaging.providers.meta_schemas import MetaStickerMessage, MetaStickerObject
+
+        msg = MetaStickerMessage(
+            to="5511999999999",
+            sticker=MetaStickerObject(link="https://example.com/sticker.webp"),
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert payload["type"] == "sticker"
+        assert payload["sticker"]["link"] == "https://example.com/sticker.webp"
+        assert "id" not in payload["sticker"]
+
+    def test_sticker_message_with_id(self):
+        from messaging.providers.meta_schemas import MetaStickerMessage, MetaStickerObject
+
+        msg = MetaStickerMessage(
+            to="5511999999999",
+            sticker=MetaStickerObject(id="media_123"),
+        )
+        payload = msg.model_dump(exclude_none=True)
+        assert payload["type"] == "sticker"
+        assert payload["sticker"]["id"] == "media_123"
+        assert "link" not in payload["sticker"]
+
+
 class TestMetaResponseModels:
     def test_success_response_parses(self):
         data = {
