@@ -17,6 +17,12 @@ __all__ = [
     "MetaTemplateLanguage",
     "MetaTemplatePayload",
     "MetaTemplateMessage",
+    # Outbound: Interactive reply buttons
+    "MetaReplyButton",
+    "MetaInteractiveAction",
+    "MetaInteractiveBody",
+    "MetaInteractivePayload",
+    "MetaInteractiveMessage",
     # Inbound: Success response
     "MetaMessageContact",
     "MetaMessageEntry",
@@ -87,6 +93,35 @@ class MetaTemplateMessage(BaseModel):
     to: str
     type: str = "template"
     template: MetaTemplatePayload
+
+
+# ── Outbound: Interactive reply buttons ─────────────────────────────
+
+
+class MetaReplyButton(BaseModel):
+    type: str = "reply"
+    reply: dict[str, str]
+
+
+class MetaInteractiveAction(BaseModel):
+    buttons: list[MetaReplyButton]
+
+
+class MetaInteractiveBody(BaseModel):
+    text: str
+
+
+class MetaInteractivePayload(BaseModel):
+    type: str = "button"
+    body: MetaInteractiveBody
+    action: MetaInteractiveAction
+
+
+class MetaInteractiveMessage(BaseModel):
+    messaging_product: str = "whatsapp"
+    to: str
+    type: str = "interactive"
+    interactive: MetaInteractivePayload
 
 
 # ── Inbound: Success response ────────────────────────────────────────

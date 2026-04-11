@@ -110,6 +110,72 @@ class TestMetaTemplateModels:
         assert comp.type == "header"
 
 
+class TestMetaInteractiveModels:
+    def test_interactive_message_serializes_correctly(self):
+        from messaging.providers.meta_schemas import (
+            MetaInteractiveAction,
+            MetaInteractiveBody,
+            MetaInteractiveMessage,
+            MetaInteractivePayload,
+            MetaReplyButton,
+        )
+
+        msg = MetaInteractiveMessage(
+            to="5511999999999",
+            interactive=MetaInteractivePayload(
+                body=MetaInteractiveBody(text="Choose an option:"),
+                action=MetaInteractiveAction(
+                    buttons=[
+                        MetaReplyButton(reply={"id": "opt_yes", "title": "Yes"}),
+                        MetaReplyButton(reply={"id": "opt_no", "title": "No"}),
+                    ]
+                ),
+            ),
+        )
+        payload = msg.model_dump()
+        assert payload == {
+            "messaging_product": "whatsapp",
+            "to": "5511999999999",
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {"text": "Choose an option:"},
+                "action": {
+                    "buttons": [
+                        {"type": "reply", "reply": {"id": "opt_yes", "title": "Yes"}},
+                        {"type": "reply", "reply": {"id": "opt_no", "title": "No"}},
+                    ]
+                },
+            },
+        }
+
+    def test_interactive_message_defaults(self):
+        from messaging.providers.meta_schemas import (
+            MetaInteractiveAction,
+            MetaInteractiveBody,
+            MetaInteractiveMessage,
+            MetaInteractivePayload,
+            MetaReplyButton,
+        )
+
+        msg = MetaInteractiveMessage(
+            to="123",
+            interactive=MetaInteractivePayload(
+                body=MetaInteractiveBody(text="hi"),
+                action=MetaInteractiveAction(buttons=[MetaReplyButton(reply={"id": "1", "title": "OK"})]),
+            ),
+        )
+        assert msg.messaging_product == "whatsapp"
+        assert msg.type == "interactive"
+        assert msg.interactive.type == "button"
+
+    def test_reply_button_default_type(self):
+        from messaging.providers.meta_schemas import MetaReplyButton
+
+        btn = MetaReplyButton(reply={"id": "1", "title": "OK"})
+        assert btn.type == "reply"
+
+
 class TestMetaResponseModels:
     def test_success_response_parses(self):
         data = {

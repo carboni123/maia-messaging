@@ -31,6 +31,7 @@ from messaging import (
     TwilioConfig,
     TwilioProvider,
     TwilioSMSConfig,
+    WhatsAppInteractiveReply,
     WhatsAppMedia,
     WhatsAppPersonalConfig,
     WhatsAppPersonalProvider,
@@ -630,6 +631,77 @@ class TestMetaWhatsAppTemplateE2E:
         assert payload["type"] == "template"
         assert payload["template"]["name"] == "order_update"
         assert payload["template"]["language"]["code"] == "pt_BR"
+
+
+class TestMetaWhatsAppInteractiveE2E:
+    """Full flow: WhatsAppInteractiveReply → Gateway → MetaWhatsAppProvider → Meta API."""
+
+    def test_interactive_buttons_reach_meta_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        mock_client.post = MagicMock(return_value=_meta_ok("wamid.btn_e2e"))
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppInteractiveReply(
+            to="whatsapp:+5511999999999",
+            body="Choose an option:",
+            buttons=[
+                {"id": "opt_yes", "title": "Yes"},
+                {"id": "opt_no", "title": "No"},
+            ],
+        )
+        result = gateway.send(msg)
+
+        assert result.succeeded
+        assert result.external_id == "wamid.btn_e2e"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "button"
+        assert payload["interactive"]["body"]["text"] == "Choose an option:"
+        buttons = payload["interactive"]["action"]["buttons"]
+        assert len(buttons) == 2
+        assert buttons[0]["reply"]["id"] == "opt_yes"
+
+    def test_interactive_empty_body_rejected_before_api(self, meta_provider: MetaWhatsAppProvider):
+        mock_client = MagicMock()
+        meta_provider._client = mock_client
+        gateway = MessagingGateway(meta_provider)
+
+        msg = WhatsAppInteractiveReply(
+            to="+5511999999999",
+            body="  ",
+            buttons=[{"id": "a", "title": "OK"}],
+        )
+        result = gateway.send(msg)
+
+        assert not result.succeeded
+        assert "No message body" in (result.error_message or "")
+        mock_client.post.assert_not_called()
+
+    def test_interactive_rejected_by_twilio_provider(self, twilio_provider: TwilioProvider):
+        """Twilio provider does not support interactive messages."""
+        gateway = MessagingGateway(twilio_provider)
+        msg = WhatsAppInteractiveReply(
+            to="whatsapp:+5511999999999",
+            body="Pick one",
+            buttons=[{"id": "a", "title": "OK"}],
+        )
+        result = gateway.send(msg)
+        assert not result.succeeded
+
+    def test_interactive_rejected_by_personal_provider(self, whatsapp_provider: WhatsAppPersonalProvider):
+        """WhatsApp Personal provider does not support interactive messages."""
+        gateway = MessagingGateway(whatsapp_provider)
+        msg = WhatsAppInteractiveReply(
+            to="+5511999999999",
+            body="Pick one",
+            buttons=[{"id": "a", "title": "OK"}],
+        )
+        result = gateway.send(msg)
+        assert not result.succeeded
 
 
 class TestCrossProviderTemplateRejection:

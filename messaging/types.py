@@ -18,6 +18,7 @@ __all__ = [
     "TelegramText",
     "TwilioConfig",
     "TwilioSMSConfig",
+    "WhatsAppInteractiveReply",
     "WhatsAppMedia",
     "WhatsAppPersonalConfig",
     "WhatsAppTemplate",
@@ -166,7 +167,22 @@ class MetaWhatsAppTemplate:
     components: list[dict[str, Any]] = field(default_factory=list)
 
 
-Message = WhatsAppText | WhatsAppMedia | WhatsAppTemplate | MetaWhatsAppTemplate
+@dataclass(frozen=True, slots=True)
+class WhatsAppInteractiveReply:
+    """A WhatsApp interactive reply-button message (session-only, no template needed).
+
+    Up to 3 buttons. Each button has an ``id`` (callback payload) and
+    ``title`` (label shown to the user, max 20 chars).
+
+    Only supported on Meta Cloud API within the 24-hour session window.
+    """
+
+    to: str
+    body: str
+    buttons: list[dict[str, str]] = field(default_factory=list)
+
+
+Message = WhatsAppText | WhatsAppMedia | WhatsAppTemplate | MetaWhatsAppTemplate | WhatsAppInteractiveReply
 
 
 # ── Email message types ──────────────────────────────────────────────

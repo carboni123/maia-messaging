@@ -13,9 +13,14 @@ from pydantic import ValidationError
 
 from messaging.providers.meta_schemas import (
     MetaErrorResponse,
+    MetaInteractiveAction,
+    MetaInteractiveBody,
+    MetaInteractiveMessage,
+    MetaInteractivePayload,
     MetaMediaMessage,
     MetaMediaObject,
     MetaMessageResponse,
+    MetaReplyButton,
     MetaTemplateComponentPayload,
     MetaTemplateLanguage,
     MetaTemplateMessage,
@@ -29,6 +34,7 @@ from messaging.types import (
     Message,
     MetaWhatsAppConfig,
     MetaWhatsAppTemplate,
+    WhatsAppInteractiveReply,
     WhatsAppMedia,
     WhatsAppTemplate,
     WhatsAppText,
@@ -126,6 +132,8 @@ class MetaWhatsAppProvider:
             return self._send_media(message)
         if isinstance(message, MetaWhatsAppTemplate):
             return self._send_template(message)
+        if isinstance(message, WhatsAppInteractiveReply):
+            return self._send_interactive(message)
         if isinstance(message, WhatsAppTemplate):
             return DeliveryResult.fail(
                 "MetaWhatsAppProvider does not support WhatsAppTemplate; use MetaWhatsAppTemplate"
@@ -203,6 +211,26 @@ class MetaWhatsAppProvider:
             template=template_payload,
         )
         return self._post(msg.model_dump(exclude_none=True))
+
+    def _send_interactive(self, message: WhatsAppInteractiveReply) -> DeliveryResult:
+        if not message.body or not message.body.strip():
+            return DeliveryResult.fail("No message body provided")
+        if not message.buttons:
+            return DeliveryResult.fail("No buttons provided")
+
+        body = message.body.strip()
+        if len(body) > 1024:
+            body = body[:1024]
+
+        buttons = [MetaReplyButton(reply={"id": btn["id"], "title": btn["title"][:20]}) for btn in message.buttons[:3]]
+        msg = MetaInteractiveMessage(
+            to=_normalize_recipient(message.to),
+            interactive=MetaInteractivePayload(
+                body=MetaInteractiveBody(text=body),
+                action=MetaInteractiveAction(buttons=buttons),
+            ),
+        )
+        return self._post(msg.model_dump())
 
     def _post(self, payload: dict[str, Any]) -> DeliveryResult:
         """Make a POST request to the Meta WhatsApp Cloud API."""

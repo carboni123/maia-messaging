@@ -8,6 +8,7 @@ from messaging import (
     DeliveryStatus,
     MetaWhatsAppConfig,
     MetaWhatsAppTemplate,
+    WhatsAppInteractiveReply,
     WhatsAppMedia,
     WhatsAppTemplate,
     WhatsAppText,
@@ -343,6 +344,141 @@ class TestSendTemplate:
         )
         assert not result.succeeded
         assert "MetaWhatsAppTemplate" in result.error_message
+
+
+class TestSendInteractive:
+    def test_send_interactive_success(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response("wamid.btn123"))
+
+        result = provider.send(
+            WhatsAppInteractiveReply(
+                to="+5511999999999",
+                body="Choose an option:",
+                buttons=[
+                    {"id": "opt_1", "title": "Yes"},
+                    {"id": "opt_2", "title": "No"},
+                ],
+            )
+        )
+
+        assert result.succeeded
+        assert result.status == DeliveryStatus.SENT
+        assert result.external_id == "wamid.btn123"
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["messaging_product"] == "whatsapp"
+        assert payload["to"] == "5511999999999"
+        assert payload["type"] == "interactive"
+        assert payload["interactive"]["type"] == "button"
+        assert payload["interactive"]["body"]["text"] == "Choose an option:"
+        buttons = payload["interactive"]["action"]["buttons"]
+        assert len(buttons) == 2
+        assert buttons[0]["reply"]["id"] == "opt_1"
+        assert buttons[0]["reply"]["title"] == "Yes"
+        assert buttons[1]["reply"]["id"] == "opt_2"
+        assert buttons[1]["reply"]["title"] == "No"
+
+    def test_send_interactive_strips_whatsapp_prefix(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
+
+        provider.send(
+            WhatsAppInteractiveReply(
+                to="whatsapp:+5511999999999",
+                body="Pick one",
+                buttons=[{"id": "a", "title": "A"}],
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["to"] == "5511999999999"
+
+    def test_send_interactive_empty_body_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveReply(
+                to="+5511999999999",
+                body="   ",
+                buttons=[{"id": "a", "title": "A"}],
+            )
+        )
+        assert not result.succeeded
+        assert "No message body" in result.error_message
+
+    def test_send_interactive_no_buttons_fails(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider = MetaWhatsAppProvider(meta_whatsapp_config)
+        result = provider.send(
+            WhatsAppInteractiveReply(
+                to="+5511999999999",
+                body="Pick one",
+                buttons=[],
+            )
+        )
+        assert not result.succeeded
+        assert "No buttons" in result.error_message
+
+    def test_send_interactive_caps_at_three_buttons(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
+
+        provider.send(
+            WhatsAppInteractiveReply(
+                to="+5511999999999",
+                body="Pick one",
+                buttons=[
+                    {"id": "1", "title": "One"},
+                    {"id": "2", "title": "Two"},
+                    {"id": "3", "title": "Three"},
+                    {"id": "4", "title": "Four"},
+                ],
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        buttons = payload["interactive"]["action"]["buttons"]
+        assert len(buttons) == 3
+        assert buttons[2]["reply"]["id"] == "3"
+
+    def test_send_interactive_truncates_title_at_20_chars(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
+
+        provider.send(
+            WhatsAppInteractiveReply(
+                to="+5511999999999",
+                body="Pick",
+                buttons=[{"id": "long", "title": "A" * 30}],
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        title = payload["interactive"]["action"]["buttons"][0]["reply"]["title"]
+        assert len(title) == 20
+
+    def test_send_interactive_truncates_body_at_1024_chars(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
+
+        provider.send(
+            WhatsAppInteractiveReply(
+                to="+5511999999999",
+                body="B" * 2000,
+                buttons=[{"id": "a", "title": "OK"}],
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert len(payload["interactive"]["body"]["text"]) == 1024
+
+    def test_send_interactive_with_bsuid(self, meta_whatsapp_config: MetaWhatsAppConfig):
+        provider, mock_client = _make_provider(meta_whatsapp_config, _ok_response())
+
+        provider.send(
+            WhatsAppInteractiveReply(
+                to="BR.1A2B3C4D5E6F",
+                body="Pick",
+                buttons=[{"id": "a", "title": "OK"}],
+            )
+        )
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["to"] == "BR.1A2B3C4D5E6F"
 
 
 class TestErrorHandling:
