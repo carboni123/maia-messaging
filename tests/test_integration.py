@@ -29,7 +29,6 @@ from messaging import (
     TelegramMedia,
     TelegramText,
     TwilioConfig,
-    TwilioProvider,
     TwilioSMSConfig,
     WhatsAppContacts,
     WhatsAppInteractiveCTA,
@@ -38,7 +37,6 @@ from messaging import (
     WhatsAppLocation,
     WhatsAppMedia,
     WhatsAppPersonalConfig,
-    WhatsAppPersonalProvider,
     WhatsAppProduct,
     WhatsAppProductList,
     WhatsAppReaction,
@@ -47,6 +45,8 @@ from messaging import (
     WhatsAppText,
 )
 from messaging.providers.meta import MetaWhatsAppProvider
+from messaging.providers.twilio import TwilioProvider
+from messaging.providers.whatsapp_personal import WhatsAppPersonalProvider
 from messaging.sms.twilio import TwilioSMSProvider
 from messaging.telegram.bot_api import TelegramBotProvider
 

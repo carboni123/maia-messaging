@@ -1,7 +1,14 @@
-"""Messaging providers."""
+"""Messaging providers.
+
+Concrete providers must be imported from their module to keep
+third-party SDK dependencies optional::
+
+    from messaging.providers.meta import MetaWhatsAppProvider         # httpx (always available)
+    from messaging.providers.whatsapp_personal import WhatsAppPersonalProvider  # httpx (always available)
+    from messaging.providers.twilio import TwilioProvider             # requires `maia-messaging[twilio]`
+"""
 
 from .base import MessagingProvider
-from .meta import MetaWhatsAppProvider
 from .meta_schemas import (
     MetaErrorDetail,
     MetaErrorResponse,
@@ -18,14 +25,9 @@ from .meta_schemas import (
     MetaTextBody,
     MetaTextMessage,
 )
-from .twilio import TwilioProvider
-from .whatsapp_personal import WhatsAppPersonalProvider
 
 __all__ = [
     "MessagingProvider",
-    "MetaWhatsAppProvider",
-    "TwilioProvider",
-    "WhatsAppPersonalProvider",
     # Meta WhatsApp API schemas
     "MetaErrorDetail",
     "MetaErrorResponse",

@@ -5,54 +5,45 @@ Owns everything from "I have a resolved message and provider config" to
 "here's what happened." The consuming app retains orchestration (who to send
 to, which provider account, quota, logging).
 
-Installation::
+Installation
+------------
+
+Base install (Meta WhatsApp, WhatsApp Personal adapter, SMTP2GO, Telegram,
+phone utils — everything that runs on ``httpx``)::
 
     pip install maia-messaging@git+https://github.com/carboni123/maia-messaging.git
 
-Quick start — WhatsApp via Twilio::
+With Twilio support (WhatsApp + SMS + Content API templates)::
 
-    from messaging import TwilioProvider, TwilioConfig, WhatsAppText
+    pip install "maia-messaging[twilio]@git+https://github.com/carboni123/maia-messaging.git"
 
-    provider = TwilioProvider(TwilioConfig(
-        account_sid="AC...",
-        auth_token="...",
-        whatsapp_number="whatsapp:+14155238886",
-    ))
-    result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello!"))
-    if result.succeeded:
-        print(f"Message SID: {result.external_id}")
+With SendGrid email support::
 
-Quick start — SMS via Twilio::
+    pip install "maia-messaging[sendgrid]@git+https://github.com/carboni123/maia-messaging.git"
 
-    from messaging import TwilioSMSProvider, TwilioSMSConfig, SMSMessage
+Everything::
 
-    provider = TwilioSMSProvider(TwilioSMSConfig(
-        account_sid="AC...",
-        auth_token="...",
-        from_number="+14155238886",
-    ))
-    result = provider.send(SMSMessage(to="+5511999999999", body="Your code is 123456"))
-    if result.succeeded:
-        print(f"SMS SID: {result.external_id}")
+    pip install "maia-messaging[all]@git+https://github.com/carboni123/maia-messaging.git"
 
-Quick start — Email via SendGrid::
+Import paths for concrete providers
+-----------------------------------
 
-    from messaging import SendGridProvider, SendGridConfig, EmailMessage
+Concrete providers are imported from their module so third-party SDK
+dependencies stay optional::
 
-    provider = SendGridProvider(SendGridConfig(api_key="SG..."))
-    result = provider.send(EmailMessage(
-        to="user@example.com",
-        subject="Welcome",
-        html_content="<h1>Hello!</h1>",
-        from_email="noreply@example.com",
-        from_name="My App",
-    ))
-    if result.succeeded:
-        print("Email sent!")
+    from messaging.providers.meta import MetaWhatsAppProvider
+    from messaging.providers.whatsapp_personal import WhatsAppPersonalProvider
+    from messaging.providers.twilio import TwilioProvider, empty_messaging_response_xml
+    from messaging.content_api import TwilioContentAPI, TwilioContentAPIError, TwilioTemplateResponse
+    from messaging.email.sendgrid import SendGridProvider
+    from messaging.email.smtp2go import Smtp2GoProvider
+    from messaging.sms.twilio import TwilioSMSProvider
+    from messaging.telegram.bot_api import TelegramBotProvider
 
-Quick start — WhatsApp via Meta Cloud API::
+Quick start — WhatsApp via Meta Cloud API (base install)::
 
-    from messaging import MetaWhatsAppProvider, MetaWhatsAppConfig, WhatsAppText
+    from messaging import MetaWhatsAppConfig, WhatsAppText
+    from messaging.providers.meta import MetaWhatsAppProvider
 
     provider = MetaWhatsAppProvider(MetaWhatsAppConfig(
         phone_number_id="123456789",
@@ -62,18 +53,56 @@ Quick start — WhatsApp via Meta Cloud API::
     if result.succeeded:
         print(f"Message ID: {result.external_id}")
 
-Quick start — Telegram via Bot API::
+Quick start — WhatsApp via Twilio (``[twilio]`` extra)::
 
-    from messaging import TelegramBotProvider, TelegramConfig, TelegramText
+    from messaging import TwilioConfig, WhatsAppText
+    from messaging.providers.twilio import TwilioProvider
+
+    provider = TwilioProvider(TwilioConfig(
+        account_sid="AC...",
+        auth_token="...",
+        whatsapp_number="whatsapp:+14155238886",
+    ))
+    result = provider.send(WhatsAppText(to="whatsapp:+5511999999999", body="Hello!"))
+
+Quick start — SMS via Twilio (``[twilio]`` extra)::
+
+    from messaging import SMSMessage, TwilioSMSConfig
+    from messaging.sms.twilio import TwilioSMSProvider
+
+    provider = TwilioSMSProvider(TwilioSMSConfig(
+        account_sid="AC...",
+        auth_token="...",
+        from_number="+14155238886",
+    ))
+    result = provider.send(SMSMessage(to="+5511999999999", body="Your code is 123456"))
+
+Quick start — Email via SendGrid (``[sendgrid]`` extra)::
+
+    from messaging import EmailMessage, SendGridConfig
+    from messaging.email.sendgrid import SendGridProvider
+
+    provider = SendGridProvider(SendGridConfig(api_key="SG..."))
+    result = provider.send(EmailMessage(
+        to="user@example.com",
+        subject="Welcome",
+        html_content="<h1>Hello!</h1>",
+        from_email="noreply@example.com",
+        from_name="My App",
+    ))
+
+Quick start — Telegram via Bot API (base install)::
+
+    from messaging import TelegramConfig, TelegramText
+    from messaging.telegram.bot_api import TelegramBotProvider
 
     provider = TelegramBotProvider(TelegramConfig(bot_token="123456789:ABCdef..."))
     result = provider.send(TelegramText(chat_id=12345, body="Hello from Maia!"))
-    if result.succeeded:
-        print(f"Message ID: {result.external_id}")
 
-Template management — Twilio Content API::
+Template management — Twilio Content API (``[twilio]`` extra)::
 
-    from messaging import TwilioContentAPI, TwilioConfig
+    from messaging import TwilioConfig
+    from messaging.content_api import TwilioContentAPI
 
     api = TwilioContentAPI(TwilioConfig(
         account_sid="AC...",
@@ -97,7 +126,7 @@ With phone fallback (Brazilian 9-digit → 8-digit retry)::
 
 For testing::
 
-    from messaging import MockProvider
+    from messaging import MockProvider, WhatsAppText
 
     provider = MockProvider()
     result = provider.send(WhatsAppText(to="+5511...", body="test"))
@@ -108,10 +137,10 @@ Module overview
 ---------------
 - ``types``         — Core dataclasses: Message types, DeliveryResult, configs
 - ``gateway``       — MessagingGateway with phone fallback
-- ``providers/``    — TwilioProvider, MetaWhatsAppProvider, WhatsAppPersonalProvider, MockProvider
-- ``email/``        — SendGridProvider, Smtp2GoProvider
-- ``sms/``          — TwilioSMSProvider
-- ``telegram/``     — TelegramBotProvider (Telegram Bot API)
+- ``providers/``    — MessagingProvider protocol, Meta/Twilio/WhatsApp Personal providers
+- ``email/``        — EmailProvider protocol, SendGrid/SMTP2GO providers
+- ``sms/``          — SMSProvider protocol, Twilio SMS provider
+- ``telegram/``     — TelegramProvider protocol, Telegram Bot API provider
 - ``content_api``   — TwilioContentAPI for template CRUD
 - ``phone/``        — Phone normalization (Brazil 8→9 digit, E.164, whatsapp: format)
 - ``pricing``       — WhatsApp template cost calculator
@@ -127,8 +156,7 @@ What this library does NOT own (stays in the consuming app):
 
 from __future__ import annotations
 
-from .content_api import TwilioContentAPI, TwilioContentAPIError, TwilioTemplateResponse
-from .email import EmailProvider, SendGridProvider, Smtp2GoProvider
+from .email.base import EmailProvider
 from .gateway import MessagingGateway
 from .mock import MockProvider, SentMessage
 from .phone import (
@@ -141,12 +169,18 @@ from .phone import (
 )
 from .pricing import TEMPLATE_PRICING, calculate_template_cost
 from .providers.base import MessagingProvider
-from .providers.meta import MetaWhatsAppProvider
 from .providers.meta_schemas import (
     MetaCTAAction,
     MetaCTAMessage,
     MetaCTAParameters,
     MetaCTAPayload,
+    MetaContact,
+    MetaContactEmail,
+    MetaContactName,
+    MetaContactOrg,
+    MetaContactPhone,
+    MetaContactUrl,
+    MetaContactsMessage,
     MetaErrorDetail,
     MetaErrorResponse,
     MetaInteractiveAction,
@@ -160,6 +194,8 @@ from .providers.meta_schemas import (
     MetaListPayload,
     MetaListRow,
     MetaListSection,
+    MetaLocationCoordinates,
+    MetaLocationMessage,
     MetaMediaMessage,
     MetaMediaObject,
     MetaMessageContact,
@@ -173,15 +209,6 @@ from .providers.meta_schemas import (
     MetaProductMessage,
     MetaProductPayload,
     MetaProductSection,
-    MetaContactsMessage,
-    MetaContact,
-    MetaContactEmail,
-    MetaContactName,
-    MetaContactOrg,
-    MetaContactPhone,
-    MetaContactUrl,
-    MetaLocationCoordinates,
-    MetaLocationMessage,
     MetaReactionMessage,
     MetaReactionPayload,
     MetaReplyButton,
@@ -195,15 +222,11 @@ from .providers.meta_schemas import (
     MetaTextBody,
     MetaTextMessage,
 )
-from .providers.twilio import TwilioProvider, empty_messaging_response_xml
-from .providers.whatsapp_personal import WhatsAppPersonalProvider
-from .sms import SMSProvider, TwilioSMSProvider
-from .telegram import (
-    TelegramBotProvider,
+from .sms.base import SMSProvider
+from .telegram.base import TelegramMessage, TelegramProvider
+from .telegram.schemas import (
     TelegramErrorResponse,
     TelegramMediaPayload,
-    TelegramMessage,
-    TelegramProvider,
     TelegramResultMessage,
     TelegramSuccessResponse,
     TelegramTextPayload,
@@ -216,12 +239,12 @@ from .types import (
     Message,
     MetaWhatsAppConfig,
     MetaWhatsAppTemplate,
-    SMSMessage,
     SendGridConfig,
+    SMSMessage,
+    Smtp2GoConfig,
     TelegramConfig,
     TelegramMedia,
     TelegramText,
-    Smtp2GoConfig,
     TwilioConfig,
     TwilioSMSConfig,
     WhatsAppContacts,
@@ -242,22 +265,14 @@ from .types import (
 __all__ = [
     # Gateway
     "MessagingGateway",
-    # WhatsApp Providers
+    # Provider protocols
     "MessagingProvider",
-    "MetaWhatsAppProvider",
-    "TwilioProvider",
-    "WhatsAppPersonalProvider",
+    "EmailProvider",
+    "SMSProvider",
+    "TelegramProvider",
+    # Mock provider (no external deps)
     "MockProvider",
     "SentMessage",
-    "empty_messaging_response_xml",
-    # Email Providers
-    "EmailProvider",
-    "SendGridProvider",
-    "Smtp2GoProvider",
-    # Template Management
-    "TwilioContentAPI",
-    "TwilioContentAPIError",
-    "TwilioTemplateResponse",
     # Types — WhatsApp
     "DeliveryResult",
     "DeliveryStatus",
@@ -283,27 +298,21 @@ __all__ = [
     "EmailMessage",
     "SendGridConfig",
     "Smtp2GoConfig",
-    # SMS Providers
-    "SMSProvider",
-    "TwilioSMSProvider",
     # Types — SMS
     "SMSMessage",
     "TwilioSMSConfig",
-    # Telegram Providers
-    "TelegramProvider",
-    "TelegramBotProvider",
     # Types — Telegram
     "TelegramMessage",
     "TelegramText",
     "TelegramMedia",
     "TelegramConfig",
-    # Types — Telegram Bot API schemas
+    # Telegram Bot API schemas
     "TelegramErrorResponse",
     "TelegramMediaPayload",
     "TelegramResultMessage",
     "TelegramSuccessResponse",
     "TelegramTextPayload",
-    # Types — Meta WhatsApp API schemas
+    # Meta WhatsApp API schemas
     "MetaCTAAction",
     "MetaCTAMessage",
     "MetaCTAParameters",

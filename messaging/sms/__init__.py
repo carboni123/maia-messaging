@@ -1,6 +1,11 @@
-"""SMS channel — multi-provider SMS delivery."""
+"""SMS channel — multi-provider SMS delivery.
+
+Concrete providers must be imported from their module to keep
+third-party SDK dependencies optional::
+
+    from messaging.sms.twilio import TwilioSMSProvider  # requires `maia-messaging[twilio]`
+"""
 
 from .base import SMSProvider
-from .twilio import TwilioSMSProvider
 
-__all__ = ["SMSProvider", "TwilioSMSProvider"]
+__all__ = ["SMSProvider"]

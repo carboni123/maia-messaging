@@ -8,15 +8,20 @@ version = "0.4.0"
 description = "Multi-channel messaging library: WhatsApp (Twilio, Meta Cloud API, Personal), Email (SendGrid, SMTP2GO), SMS (Twilio), Telegram (Bot API), template management"
 requires-python = ">=3.11"
 dependencies = [
-    "twilio>=9.0",
-    "sendgrid>=6.0",
     "httpx>=0.24",
     "pydantic>=2.0",
     "phonenumberslite>=8.13",
 ]
 
 [project.optional-dependencies]
+twilio = ["twilio>=9.0"]
+sendgrid = ["sendgrid>=6.0"]
+all = [
+    "maia-messaging[twilio]",
+    "maia-messaging[sendgrid]",
+]
 test = [
+    "maia-messaging[all]",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-benchmark>=5.0",

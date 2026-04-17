@@ -1,7 +1,11 @@
-"""Telegram channel providers."""
+"""Telegram channel providers.
+
+Concrete providers must be imported from their module::
+
+    from messaging.telegram.bot_api import TelegramBotProvider  # httpx (always available)
+"""
 
 from .base import TelegramMessage, TelegramProvider
-from .bot_api import TelegramBotProvider
 from .schemas import (
     TelegramErrorResponse,
     TelegramMediaPayload,
@@ -13,7 +17,6 @@ from .schemas import (
 __all__ = [
     "TelegramMessage",
     "TelegramProvider",
-    "TelegramBotProvider",
     # Telegram Bot API schemas
     "TelegramErrorResponse",
     "TelegramMediaPayload",

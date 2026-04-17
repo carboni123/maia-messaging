@@ -1,7 +1,12 @@
-"""Email delivery providers."""
+"""Email delivery providers.
+
+Concrete providers must be imported from their module to keep
+third-party SDK dependencies optional::
+
+    from messaging.email.smtp2go import Smtp2GoProvider    # httpx (always available)
+    from messaging.email.sendgrid import SendGridProvider  # requires `maia-messaging[sendgrid]`
+"""
 
 from .base import EmailProvider
-from .sendgrid import SendGridProvider
-from .smtp2go import Smtp2GoProvider
 
-__all__ = ["EmailProvider", "SendGridProvider", "Smtp2GoProvider"]
+__all__ = ["EmailProvider"]
